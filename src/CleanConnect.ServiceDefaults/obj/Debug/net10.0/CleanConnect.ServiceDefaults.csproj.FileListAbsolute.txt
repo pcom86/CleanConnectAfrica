@@ -1,0 +1,12 @@
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.ServiceDefaults\bin\Debug\net10.0\CleanConnect.ServiceDefaults.deps.json
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.ServiceDefaults\bin\Debug\net10.0\CleanConnect.ServiceDefaults.dll
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.ServiceDefaults\bin\Debug\net10.0\CleanConnect.ServiceDefaults.pdb
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.ServiceDefaults\obj\Debug\net10.0\CleanConnect.ServiceDefaults.csproj.AssemblyReference.cache
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.ServiceDefaults\obj\Debug\net10.0\CleanConnect.ServiceDefaults.GeneratedMSBuildEditorConfig.editorconfig
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.ServiceDefaults\obj\Debug\net10.0\CleanConnect.ServiceDefaults.AssemblyInfoInputs.cache
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.ServiceDefaults\obj\Debug\net10.0\CleanConnect.ServiceDefaults.AssemblyInfo.cs
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.ServiceDefaults\obj\Debug\net10.0\CleanConnect.ServiceDefaults.csproj.CoreCompileInputs.cache
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.ServiceDefaults\obj\Debug\net10.0\CleanConnect.ServiceDefaults.dll
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.ServiceDefaults\obj\Debug\net10.0\refint\CleanConnect.ServiceDefaults.dll
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.ServiceDefaults\obj\Debug\net10.0\CleanConnect.ServiceDefaults.pdb
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.ServiceDefaults\obj\Debug\net10.0\ref\CleanConnect.ServiceDefaults.dll

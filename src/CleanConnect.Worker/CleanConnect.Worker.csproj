@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CleanConnect.Application\CleanConnect.Application.csproj" />
+    <ProjectReference Include="..\CleanConnect.Infrastructure\CleanConnect.Infrastructure.csproj" />
+    <ProjectReference Include="..\CleanConnect.ServiceDefaults\CleanConnect.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

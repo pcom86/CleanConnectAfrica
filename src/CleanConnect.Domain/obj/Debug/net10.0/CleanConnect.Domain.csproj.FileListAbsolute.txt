@@ -1,0 +1,11 @@
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.Domain\bin\Debug\net10.0\CleanConnect.Domain.deps.json
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.Domain\bin\Debug\net10.0\CleanConnect.Domain.dll
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.Domain\bin\Debug\net10.0\CleanConnect.Domain.pdb
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.Domain\obj\Debug\net10.0\CleanConnect.Domain.GeneratedMSBuildEditorConfig.editorconfig
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.Domain\obj\Debug\net10.0\CleanConnect.Domain.AssemblyInfoInputs.cache
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.Domain\obj\Debug\net10.0\CleanConnect.Domain.AssemblyInfo.cs
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.Domain\obj\Debug\net10.0\CleanConnect.Domain.csproj.CoreCompileInputs.cache
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.Domain\obj\Debug\net10.0\CleanConnect.Domain.dll
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.Domain\obj\Debug\net10.0\refint\CleanConnect.Domain.dll
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.Domain\obj\Debug\net10.0\CleanConnect.Domain.pdb
+c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.Domain\obj\Debug\net10.0\ref\CleanConnect.Domain.dll

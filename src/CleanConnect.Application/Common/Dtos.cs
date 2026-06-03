@@ -1,0 +1,39 @@
+using CleanConnect.Infrastructure.Entities;
+
+namespace CleanConnect.Application.Common;
+
+public sealed record ServiceDto(Guid Id, string Name, string Description, string Category, decimal BasePrice, int EstimatedDurationMinutes, int RequiredCleaners);
+
+public sealed record UserDto(Guid Id, string FirstName, string LastName, string Email, string PhoneNumber, UserRole Role, AccountStatus Status, CustomerProfileDto? CustomerProfile, CleanerProfileDto? CleanerProfile);
+
+public sealed record CustomerProfileDto(Guid Id, CustomerType CustomerType, string? CompanyName, string? VatNumber, string? BillingAddress, string? DefaultPaymentMethodReference);
+
+public sealed record CleanerProfileDto(Guid Id, Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, decimal Rating, AccountStatus Status);
+
+public sealed record BookingDto(Guid Id, Guid CustomerProfileId, Guid ServiceId, Guid AddressId, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency);
+
+public sealed record ProviderDto(Guid Id, string CompanyName, string RegistrationNumber, ProviderStatus Status, JoiningFeeStatus JoiningFeeStatus, decimal JoiningFeeAmount, decimal CommissionRate, bool IsEligibleForBookings);
+
+public sealed record BusinessProfileDto(Guid Id, string CompanyName, string RegistrationNumber, string? TaxNumber, List<ServiceCategory> ServiceCategories, string? BaseLocation, List<string> ServiceAreas, ProviderStatus Status, JoiningFeeStatus JoiningFeeStatus, decimal JoiningFeeAmount, decimal CommissionRate, decimal? Latitude, decimal? Longitude, decimal ServiceRadiusKm, bool IsEligibleForBookings, DateTimeOffset CreatedAt);
+
+public sealed record ProviderJoiningFeeDto(Guid Id, Guid ProviderId, decimal Amount, string Currency, JoiningFeeStatus Status, string InvoiceNumber, DateOnly? DueDate, DateTimeOffset? PaidAt);
+
+public sealed record ProviderCommissionDto(Guid Id, Guid ProviderId, Guid BookingId, decimal GrossBookingAmount, decimal CommissionRate, decimal CommissionAmount, decimal ProviderNetAmount, CommissionStatus Status);
+
+public sealed record PayoutDto(Guid Id, Guid ProviderId, DateOnly PeriodStart, DateOnly PeriodEnd, decimal GrossAmount, decimal CommissionAmount, decimal JoiningFeeDeductionAmount, decimal AdjustmentAmount, decimal NetAmount, PayoutStatus Status);
+
+public sealed record LaundryBookingDto(Guid BookingId, Guid LaundryJobDetailId, LaundryStatus LaundryStatus, string PackageType, decimal EstimatedWeightKg, decimal? ActualWeightKg, DateTimeOffset PickupWindowStart, DateTimeOffset PickupWindowEnd);
+
+public sealed record CarWashBookingDto(Guid BookingId, Guid CarWashJobDetailId, CarWashStatus CarWashStatus, VehicleType VehicleType, string PackageType, int NumberOfVehicles);
+
+public sealed record CleaningRequestDto(Guid Id, Guid CustomerProfileId, Guid? AddressId, Guid? ServiceId, CleaningRequestStatus Status, string? Notes, DateTimeOffset? PreferredDate, DateTimeOffset? PreferredTimeStart, DateTimeOffset? PreferredTimeEnd, DateTimeOffset CreatedAt);
+
+public sealed record CleaningRequestResponseDto(Guid Id, Guid CleaningRequestId, Guid ProviderId, string ProviderName, CleaningRequestResponseStatus Status, string? ResponseNotes, DateTimeOffset? RespondedAt);
+
+public sealed record NearbyProviderDto(Guid Id, string CompanyName, decimal Rating, decimal? DistanceKm);
+
+public sealed record CleaningJobDetailDto(Guid Id, Guid BookingId, string CleaningType, int? NumberOfRooms, decimal? SquareMeters, bool HasPets, string? SpecialInstructions, List<string> BeforePhotos, List<string> AfterPhotos, string? CleanerNotes, DateTimeOffset? TeamDispatchedAt, DateTimeOffset? TeamArrivedAt, DateTimeOffset? CompletedAt);
+
+public sealed record CleaningReportDto(Guid BookingId, string CompletionStatus, List<string> AfterPhotos, string? CleanerNotes, DateTimeOffset? CheckInTime, DateTimeOffset? CheckOutTime);
+
+public sealed record MembershipPlanDto(Guid Id, string Name, string Description, decimal JoiningFeeAmount, decimal RecurringFeeAmount, string BillingCycle, decimal DefaultCommissionRate, bool IsActive);

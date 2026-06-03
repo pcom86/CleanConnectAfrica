@@ -1,0 +1,13 @@
+<Solution>
+  <Project Path="src/CleanConnect.Domain/CleanConnect.Domain.csproj" />
+  <Project Path="src/CleanConnect.Application/CleanConnect.Application.csproj" />
+  <Project Path="src/CleanConnect.Infrastructure/CleanConnect.Infrastructure.csproj" />
+  <Folder Name="/src/" />
+  <Folder Name="/tests/">
+    <Project Path="tests/CleanConnect.Api.Tests/CleanConnect.Api.Tests.csproj" />
+  </Folder>
+  <Project Path="src/CleanConnect.Api/CleanConnect.Api.csproj" />
+  <Project Path="src/CleanConnect.Worker/CleanConnect.Worker.csproj" />
+  <Project Path="src/CleanConnect.ServiceDefaults/CleanConnect.ServiceDefaults.csproj" />
+  <Project Path="src/CleanConnect.AppHost/CleanConnect.AppHost.csproj" />
+</Solution>
