@@ -172,6 +172,9 @@ namespace CleanConnect.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<bool>("PayOnsite")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("PaymentStatus")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -856,6 +859,9 @@ namespace CleanConnect.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("City")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("CommissionRate")
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)");
@@ -897,6 +903,12 @@ namespace CleanConnect.Infrastructure.Migrations
                     b.Property<Guid?>("MembershipPlanId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("PostalCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Province")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("Rating")
                         .HasPrecision(3, 2)
                         .HasColumnType("numeric(3,2)");
@@ -922,6 +934,12 @@ namespace CleanConnect.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("StreetAddress")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Suburb")
+                        .HasColumnType("text");
 
                     b.Property<string>("TaxNumber")
                         .HasMaxLength(100)
@@ -1278,6 +1296,9 @@ namespace CleanConnect.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("IdNumber")
+                        .HasColumnType("text");
 
                     b.Property<string>("LastName")
                         .IsRequired()

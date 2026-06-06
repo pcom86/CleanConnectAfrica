@@ -130,7 +130,8 @@ public enum ServiceCategory
 {
     Cleaning = 1,
     Laundry = 2,
-    CarWash = 3
+    CarWash = 3,
+    PestControl = 4
 }
 
 public enum LaundryStatus

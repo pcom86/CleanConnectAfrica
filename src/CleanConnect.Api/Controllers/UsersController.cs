@@ -16,6 +16,13 @@ public sealed class UsersController(ISender sender) : ControllerBase
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 
+    [HttpGet("{userId:guid}")]
+    public async Task<IActionResult> GetUser(Guid userId, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new GetUserByIdQuery(userId), cancellationToken);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPut("{userId:guid}")]
     public async Task<IActionResult> UpdateUser(Guid userId, [FromBody] UpdateUserRequest request, CancellationToken cancellationToken)
     {
@@ -36,6 +43,15 @@ public sealed class UsersController(ISender sender) : ControllerBase
         var result = await sender.Send(new UpdateUserStatusCommand(userId, request.Status), cancellationToken);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
+
+    [HttpPost("{userId:guid}/addresses")]
+    public async Task<IActionResult> AddAddress(Guid userId, [FromBody] AddCustomerAddressRequest request, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new AddCustomerAddressCommand(userId, request.Label, request.StreetAddress, request.Suburb, request.City, request.Province, request.PostalCode, request.AccessInstructions), cancellationToken);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
 }
 
 public sealed record UpdateStatusRequest(AccountStatus Status);
+
+public sealed record AddCustomerAddressRequest(string Label, string StreetAddress, string Suburb, string City, string Province, string PostalCode, string? AccessInstructions);

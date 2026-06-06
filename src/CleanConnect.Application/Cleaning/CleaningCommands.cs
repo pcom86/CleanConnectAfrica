@@ -131,6 +131,7 @@ public sealed class AcceptCleaningRequestCommandHandler(CleanConnectDbContext db
     {
         var cleaningRequest = await dbContext.CleaningRequests
             .Include(x => x.Address)
+            .Include(x => x.Service)
             .SingleOrDefaultAsync(x => x.Id == request.CleaningRequestId, cancellationToken);
 
         if (cleaningRequest is null)
@@ -190,7 +191,7 @@ public sealed class AcceptCleaningRequestCommandHandler(CleanConnectDbContext db
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.AddressId, booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency));
+        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, cleaningRequest.Service?.Name ?? "", cleaningRequest.Service?.Category ?? "", booking.AddressId, cleaningRequest.Address?.Label ?? "", $"{cleaningRequest.Address?.StreetAddress}, {cleaningRequest.Address?.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
     }
 }
 
@@ -212,6 +213,8 @@ public sealed class UpdateCleaningBookingStatusCommandHandler(CleanConnectDbCont
     {
         var booking = await dbContext.Bookings
             .Include(x => x.CleaningJobDetail)
+            .Include(x => x.Service)
+            .Include(x => x.Address)
             .SingleOrDefaultAsync(x => x.Id == request.BookingId, cancellationToken);
 
         if (booking is null)
@@ -265,7 +268,7 @@ public sealed class UpdateCleaningBookingStatusCommandHandler(CleanConnectDbCont
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.AddressId, booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency));
+        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId, booking.Address?.Label ?? "", $"{booking.Address?.StreetAddress}, {booking.Address?.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
     }
 }
 
@@ -361,7 +364,7 @@ public sealed class CompleteCleaningCommandHandler(CleanConnectDbContext dbConte
 }
 
 // --- Legacy: Direct Booking Creation ---
-public sealed record CreateCleaningBookingCommand(Guid CustomerProfileId, Guid ServiceId, Guid AddressId, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, string? SpecialInstructions, string? AccessNotes, bool HasPets, string? ParkingInformation) : IRequest<ApiResult<BookingDto>>;
+public sealed record CreateCleaningBookingCommand(Guid CustomerProfileId, Guid ServiceId, Guid AddressId, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, string? SpecialInstructions, string? AccessNotes, bool HasPets, string? ParkingInformation, bool PayOnsite = false) : IRequest<ApiResult<BookingDto>>;
 
 public sealed class CreateCleaningBookingCommandValidator : AbstractValidator<CreateCleaningBookingCommand>
 {
@@ -379,13 +382,13 @@ public sealed class CreateCleaningBookingCommandHandler(CleanConnectDbContext db
     public async Task<ApiResult<BookingDto>> Handle(CreateCleaningBookingCommand request, CancellationToken cancellationToken)
     {
         var service = await dbContext.Services.SingleOrDefaultAsync(x => x.Id == request.ServiceId && x.IsActive, cancellationToken);
-        if (service is null || !service.Category.Equals(ServiceCategory.Cleaning.ToString(), StringComparison.OrdinalIgnoreCase))
+        if (service is null)
         {
-            return ApiResult<BookingDto>.Failure("Cleaning service was not found or is inactive.");
+            return ApiResult<BookingDto>.Failure("Service was not found or is inactive.");
         }
 
-        var addressBelongsToCustomer = await dbContext.Addresses.AnyAsync(x => x.Id == request.AddressId && x.CustomerProfileId == request.CustomerProfileId, cancellationToken);
-        if (!addressBelongsToCustomer)
+        var address = await dbContext.Addresses.SingleOrDefaultAsync(x => x.Id == request.AddressId && x.CustomerProfileId == request.CustomerProfileId, cancellationToken);
+        if (address is null)
         {
             return ApiResult<BookingDto>.Failure("Address was not found for the customer.");
         }
@@ -399,7 +402,7 @@ public sealed class CreateCleaningBookingCommandHandler(CleanConnectDbContext db
             AddressId = request.AddressId,
             ScheduledStart = request.ScheduledStart,
             ScheduledEnd = request.ScheduledEnd,
-            Status = BookingStatus.PendingPayment,
+            Status = request.PayOnsite ? BookingStatus.Confirmed : BookingStatus.PendingPayment,
             PaymentStatus = PaymentStatus.Pending,
             Price = service.BasePrice,
             Currency = "ZAR",
@@ -407,14 +410,200 @@ public sealed class CreateCleaningBookingCommandHandler(CleanConnectDbContext db
             AccessNotes = request.AccessNotes,
             HasPets = request.HasPets,
             ParkingInformation = request.ParkingInformation,
+            PayOnsite = request.PayOnsite,
             CreatedAt = now,
             UpdatedAt = now
         };
 
         dbContext.Bookings.Add(booking);
-        dbContext.ServiceMilestones.Add(new ServiceMilestone { Id = Guid.NewGuid(), BookingId = booking.Id, MilestoneType = "Cleaning", Status = BookingStatus.PendingPayment.ToString(), OccurredAt = now });
+        dbContext.ServiceMilestones.Add(new ServiceMilestone { Id = Guid.NewGuid(), BookingId = booking.Id, MilestoneType = service.Category, Status = booking.Status.ToString(), OccurredAt = now });
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.AddressId, booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency));
+        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, service.Name, service.Category, booking.AddressId, address.Label, $"{address.StreetAddress}, {address.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
+    }
+}
+
+// --- Provider Accept Booking ---
+public sealed record AcceptBookingCommand(Guid BookingId, Guid ProviderId) : IRequest<ApiResult<BookingDto>>;
+
+public sealed class AcceptBookingCommandValidator : AbstractValidator<AcceptBookingCommand>
+{
+    public AcceptBookingCommandValidator()
+    {
+        RuleFor(x => x.BookingId).NotEmpty();
+        RuleFor(x => x.ProviderId).NotEmpty();
+    }
+}
+
+public sealed class AcceptBookingCommandHandler(CleanConnectDbContext dbContext) : IRequestHandler<AcceptBookingCommand, ApiResult<BookingDto>>
+{
+    public async Task<ApiResult<BookingDto>> Handle(AcceptBookingCommand request, CancellationToken cancellationToken)
+    {
+        var booking = await dbContext.Bookings
+            .Include(x => x.Service)
+            .Include(x => x.Address)
+            .SingleOrDefaultAsync(x => x.Id == request.BookingId, cancellationToken);
+
+        if (booking is null)
+            return ApiResult<BookingDto>.Failure("Booking was not found.");
+
+        if (booking.Status != BookingStatus.Confirmed && booking.Status != BookingStatus.PendingPayment)
+            return ApiResult<BookingDto>.Failure("Booking cannot be accepted in its current status.");
+
+        var provider = await dbContext.Providers.SingleOrDefaultAsync(x => x.Id == request.ProviderId && x.IsEligibleForBookings, cancellationToken);
+        if (provider is null)
+            return ApiResult<BookingDto>.Failure("Provider was not found or is not eligible for bookings.");
+
+        var now = DateTimeOffset.UtcNow;
+
+        // Update booking status to Assigned
+        booking.Status = BookingStatus.Assigned;
+        booking.UpdatedAt = now;
+
+        // Create or update assignment
+        var assignment = await dbContext.Assignments.SingleOrDefaultAsync(x => x.BookingId == request.BookingId, cancellationToken);
+        if (assignment is null)
+        {
+            assignment = new Assignment
+            {
+                Id = Guid.NewGuid(),
+                BookingId = booking.Id,
+                AssignedType = AssignmentType.MarketplaceProvider,
+                ProviderId = provider.Id,
+                Status = AssignmentStatus.Accepted,
+                AssignedAt = now,
+                AcceptedAt = now
+            };
+            dbContext.Assignments.Add(assignment);
+        }
+        else
+        {
+            assignment.ProviderId = provider.Id;
+            assignment.Status = AssignmentStatus.Accepted;
+            assignment.AcceptedAt = now;
+        }
+
+        // Ensure CleaningJobDetail exists
+        if (booking.CleaningJobDetail is null)
+        {
+            booking.CleaningJobDetail = new CleaningJobDetail
+            {
+                Id = Guid.NewGuid(),
+                BookingId = booking.Id,
+                CleaningType = "Standard",
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            dbContext.CleaningJobDetails.Add(booking.CleaningJobDetail);
+        }
+
+        dbContext.ServiceMilestones.Add(new ServiceMilestone
+        {
+            Id = Guid.NewGuid(),
+            BookingId = booking.Id,
+            MilestoneType = "BookingAccepted",
+            Status = BookingStatus.Assigned.ToString(),
+            OccurredAt = now
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId, booking.Address?.Label ?? "", $"{booking.Address?.StreetAddress}, {booking.Address?.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
+    }
+}
+
+// --- Assign Cleaner to Booking ---
+public sealed record AssignCleanerToBookingCommand(Guid BookingId, Guid CleanerProfileId) : IRequest<ApiResult<BookingDto>>;
+
+public sealed class AssignCleanerToBookingCommandValidator : AbstractValidator<AssignCleanerToBookingCommand>
+{
+    public AssignCleanerToBookingCommandValidator()
+    {
+        RuleFor(x => x.BookingId).NotEmpty();
+        RuleFor(x => x.CleanerProfileId).NotEmpty();
+    }
+}
+
+public sealed class AssignCleanerToBookingCommandHandler(CleanConnectDbContext dbContext) : IRequestHandler<AssignCleanerToBookingCommand, ApiResult<BookingDto>>
+{
+    public async Task<ApiResult<BookingDto>> Handle(AssignCleanerToBookingCommand request, CancellationToken cancellationToken)
+    {
+        var booking = await dbContext.Bookings
+            .Include(x => x.Service)
+            .Include(x => x.Address)
+            .Include(x => x.CleaningJobDetail)
+            .SingleOrDefaultAsync(x => x.Id == request.BookingId, cancellationToken);
+
+        if (booking is null)
+            return ApiResult<BookingDto>.Failure("Booking was not found.");
+
+        if (booking.Status != BookingStatus.Assigned && booking.Status != BookingStatus.Confirmed)
+            return ApiResult<BookingDto>.Failure("Booking must be accepted before assigning a cleaner.");
+
+        var cleaner = await dbContext.CleanerProfiles
+            .Include(x => x.User)
+            .SingleOrDefaultAsync(x => x.Id == request.CleanerProfileId && x.Status == AccountStatus.Active, cancellationToken);
+
+        if (cleaner is null)
+            return ApiResult<BookingDto>.Failure("Cleaner was not found or is not active.");
+
+        var now = DateTimeOffset.UtcNow;
+
+        // Find or create assignment
+        var assignment = await dbContext.Assignments.SingleOrDefaultAsync(x => x.BookingId == request.BookingId, cancellationToken);
+        if (assignment is null)
+        {
+            assignment = new Assignment
+            {
+                Id = Guid.NewGuid(),
+                BookingId = booking.Id,
+                AssignedType = AssignmentType.InternalCleaner,
+                CleanerProfileId = cleaner.Id,
+                Status = AssignmentStatus.Accepted,
+                AssignedAt = now,
+                AcceptedAt = now
+            };
+            dbContext.Assignments.Add(assignment);
+        }
+        else
+        {
+            assignment.CleanerProfileId = cleaner.Id;
+            assignment.AssignedType = AssignmentType.InternalCleaner;
+            assignment.Status = AssignmentStatus.Accepted;
+        }
+
+        // Update booking status to CleanerEnRoute (dispatched)
+        booking.Status = BookingStatus.CleanerEnRoute;
+        booking.UpdatedAt = now;
+
+        if (booking.CleaningJobDetail is null)
+        {
+            booking.CleaningJobDetail = new CleaningJobDetail
+            {
+                Id = Guid.NewGuid(),
+                BookingId = booking.Id,
+                CleaningType = "Standard",
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            dbContext.CleaningJobDetails.Add(booking.CleaningJobDetail);
+        }
+
+        booking.CleaningJobDetail.TeamDispatchedAt = now;
+        booking.CleaningJobDetail.UpdatedAt = now;
+
+        dbContext.ServiceMilestones.Add(new ServiceMilestone
+        {
+            Id = Guid.NewGuid(),
+            BookingId = booking.Id,
+            MilestoneType = "CleanerAssigned",
+            Status = BookingStatus.CleanerEnRoute.ToString(),
+            Notes = $"Assigned to {cleaner.User.FirstName} {cleaner.User.LastName}",
+            OccurredAt = now
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId, booking.Address?.Label ?? "", $"{booking.Address?.StreetAddress}, {booking.Address?.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
     }
 }

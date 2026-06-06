@@ -1,3 +1,4 @@
+using CleanConnect.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,9 @@ public static class DependencyInjection
                 npgsqlOptions.MigrationsHistoryTable("__ef_migrations_history", "cleanconnect");
             });
         });
+
+        services.Configure<OzowSettings>(configuration.GetSection(OzowSettings.SectionName));
+        services.AddHttpClient<IOzowPaymentService, OzowPaymentService>();
 
         return services;
     }

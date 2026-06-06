@@ -11,6 +11,7 @@ const SERVICE_OPTIONS: { value: ServiceCategory; label: string; icon: string; de
   { value: "Cleaning", label: "Cleaning", icon: "🧹", description: "Home, office & commercial cleaning" },
   { value: "Laundry", label: "Laundry", icon: "👕", description: "Wash, dry & fold laundry services" },
   { value: "CarWash", label: "Car Wash", icon: "🚗", description: "Interior & exterior vehicle cleaning" },
+  { value: "PestControl", label: "Pest Control", icon: "🐛", description: "Rodent, insect & termite treatment" },
 ];
 
 export default function SetupBusinessPage() {
@@ -26,6 +27,11 @@ export default function SetupBusinessPage() {
   const [selectedServices, setSelectedServices] = useState<ServiceCategory[]>([]);
 
   const [baseLocation, setBaseLocation] = useState("");
+  const [streetAddress, setStreetAddress] = useState("");
+  const [suburb, setSuburb] = useState("");
+  const [city, setCity] = useState("");
+  const [province, setProvince] = useState("");
+  const [postalCode, setPostalCode] = useState("");
   const [serviceAreaInput, setServiceAreaInput] = useState("");
   const [serviceAreas, setServiceAreas] = useState<string[]>([]);
   const [serviceRadiusKm, setServiceRadiusKm] = useState("25");
@@ -114,6 +120,11 @@ export default function SetupBusinessPage() {
         taxNumber: taxNumber.trim() || null,
         serviceCategories: selectedServices,
         baseLocation,
+        streetAddress: streetAddress.trim() || null,
+        suburb: suburb.trim() || null,
+        city: city.trim() || null,
+        province: province.trim() || null,
+        postalCode: postalCode.trim() || null,
         serviceAreas,
         serviceRadiusKm: parseFloat(serviceRadiusKm) || 25,
         joiningFeeAmount: joiningFee,
@@ -149,6 +160,10 @@ export default function SetupBusinessPage() {
     setError(null);
     if (!baseLocation.trim()) {
       setError("Base location is required.");
+      return;
+    }
+    if (!streetAddress.trim() || !suburb.trim() || !city.trim() || !province.trim()) {
+      setError("Street address, suburb, city, and province are required.");
       return;
     }
     if (serviceAreas.length === 0) {
@@ -196,16 +211,16 @@ export default function SetupBusinessPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">CC</span>
           </div>
-          <span className="font-bold text-xl text-gray-900">CleanConnect Africa</span>
+          <span className="font-bold text-xl text-gray-900 dark:text-gray-100">CleanConnect Africa</span>
         </div>
-        <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">
+        <Link href="/dashboard" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
           Skip for now →
         </Link>
       </header>
@@ -223,27 +238,27 @@ export default function SetupBusinessPage() {
                         ? "bg-brand-green text-white"
                         : s === step
                         ? "bg-brand-green text-white ring-4 ring-brand-green-light"
-                        : "bg-gray-200 text-gray-500"
+                        : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
                     }`}
                   >
                     {s < step ? "✓" : s}
                   </div>
                   {s < 5 && (
-                    <div className={`h-0.5 w-8 ${s < step ? "bg-brand-green" : "bg-gray-200"}`} />
+                    <div className={`h-0.5 w-8 ${s < step ? "bg-brand-green" : "bg-gray-200 dark:bg-gray-700"}`} />
                   )}
                 </div>
               ))}
             </div>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Step {step} of 5 —{" "}
               {step === 1 ? "Business Details" : step === 2 ? "Services Offered" : step === 3 ? "Location & Coverage" : step === 4 ? "Company Verification" : "Joining Fee Payment"}
             </p>
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-8">
           {error && (
-            <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            <div className="mb-6 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">
               {error}
             </div>
           )}
@@ -251,12 +266,12 @@ export default function SetupBusinessPage() {
           {/* Step 1 — Business Details */}
           {step === 1 && (
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">Business Details</h1>
-              <p className="text-gray-500 text-sm mb-6">Tell us about your company.</p>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Business Details</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Tell us about your company.</p>
 
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Company Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -264,12 +279,12 @@ export default function SetupBusinessPage() {
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="e.g. Spotless Solutions (Pty) Ltd"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Registration Number <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -277,32 +292,32 @@ export default function SetupBusinessPage() {
                     value={registrationNumber}
                     onChange={(e) => setRegistrationNumber(e.target.value)}
                     placeholder="e.g. 2023/123456/07"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                   />
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     Tip: Use &ldquo;INVALID...&rdquo; or &ldquo;FAIL...&rdquo; to simulate verification failure.
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tax Number <span className="text-gray-400 font-normal">(optional)</span>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Tax Number <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span>
                   </label>
                   <input
                     type="text"
                     value={taxNumber}
                     onChange={(e) => setTaxNumber(e.target.value)}
                     placeholder="e.g. 1234567890"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Membership Plan <span className="text-red-500">*</span>
                   </label>
                   {membershipPlans.length === 0 && (
-                    <p className="text-sm text-gray-400">Loading plans…</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500">Loading plans…</p>
                   )}
                   <div className="space-y-3">
                     {membershipPlans.map((plan) => {
@@ -314,14 +329,14 @@ export default function SetupBusinessPage() {
                           onClick={() => setSelectedPlanId(plan.id)}
                           className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
                             isSelected
-                              ? "border-brand-green bg-brand-green-light"
-                              : "border-gray-200 hover:border-gray-300 bg-white"
+                              ? "border-brand-green bg-green-50 dark:bg-green-900/30"
+                              : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-800"
                           }`}
                         >
                           <div className="flex-1">
-                            <p className="font-semibold text-gray-900">{plan.name}</p>
-                            <p className="text-sm text-gray-500">{plan.description}</p>
-                            <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                            <p className="font-semibold text-gray-900 dark:text-gray-100">{plan.name}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{plan.description}</p>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
                               <span>Joining fee: <strong>R{plan.joiningFeeAmount.toFixed(2)}</strong></span>
                               <span>Commission: <strong>{(plan.defaultCommissionRate * 100).toFixed(0)}%</strong></span>
                             </div>
@@ -330,7 +345,7 @@ export default function SetupBusinessPage() {
                             className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                               isSelected
                                 ? "border-brand-green bg-brand-green"
-                                : "border-gray-300"
+                                : "border-gray-300 dark:border-gray-600"
                             }`}
                           >
                             {isSelected && <span className="text-white text-xs font-bold">✓</span>}
@@ -354,8 +369,8 @@ export default function SetupBusinessPage() {
           {/* Step 2 — Services */}
           {step === 2 && (
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">Services Offered</h1>
-              <p className="text-gray-500 text-sm mb-6">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Services Offered</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
                 Select all services your business provides.
               </p>
 
@@ -369,20 +384,20 @@ export default function SetupBusinessPage() {
                       onClick={() => toggleService(svc.value)}
                       className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
                         selected
-                          ? "border-brand-green bg-brand-green-light"
-                          : "border-gray-200 hover:border-gray-300 bg-white"
+                          ? "border-brand-green bg-green-50 dark:bg-green-900/30"
+                          : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-800"
                       }`}
                     >
                       <span className="text-3xl">{svc.icon}</span>
                       <div className="flex-1">
-                        <p className="font-semibold text-gray-900">{svc.label}</p>
-                        <p className="text-sm text-gray-500">{svc.description}</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{svc.label}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{svc.description}</p>
                       </div>
                       <div
                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                           selected
                             ? "border-brand-green bg-brand-green"
-                            : "border-gray-300"
+                            : "border-gray-300 dark:border-gray-600"
                         }`}
                       >
                         {selected && <span className="text-white text-xs font-bold">✓</span>}
@@ -395,7 +410,7 @@ export default function SetupBusinessPage() {
               <div className="mt-8 flex gap-3">
                 <button
                   onClick={() => setStep(1)}
-                  className="flex-1 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
                   ← Back
                 </button>
@@ -412,14 +427,14 @@ export default function SetupBusinessPage() {
           {/* Step 3 — Location */}
           {step === 3 && (
             <form onSubmit={handleLocationSubmit}>
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">Location & Coverage</h1>
-              <p className="text-gray-500 text-sm mb-6">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Location & Coverage</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
                 Where is your business based and which areas do you service?
               </p>
 
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Base Location <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -427,12 +442,90 @@ export default function SetupBusinessPage() {
                     value={baseLocation}
                     onChange={(e) => setBaseLocation(e.target.value)}
                     placeholder="e.g. Cape Town, Western Cape"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Street Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={streetAddress}
+                    onChange={(e) => setStreetAddress(e.target.value)}
+                    placeholder="e.g. 123 Main Street"
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Suburb <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={suburb}
+                      onChange={(e) => setSuburb(e.target.value)}
+                      placeholder="e.g. Sandton"
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      City <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="e.g. Johannesburg"
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Province <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={province}
+                      onChange={(e) => setProvince(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    >
+                      <option value="">Select province</option>
+                      <option value="Eastern Cape">Eastern Cape</option>
+                      <option value="Free State">Free State</option>
+                      <option value="Gauteng">Gauteng</option>
+                      <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                      <option value="Limpopo">Limpopo</option>
+                      <option value="Mpumalanga">Mpumalanga</option>
+                      <option value="Northern Cape">Northern Cape</option>
+                      <option value="North West">North West</option>
+                      <option value="Western Cape">Western Cape</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Postal Code</label>
+                    <input
+                      type="text"
+                      value={postalCode}
+                      onChange={(e) => setPostalCode(e.target.value)}
+                      placeholder="e.g. 2196"
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Service Radius (km)
                   </label>
                   <div className="flex items-center gap-4">
@@ -452,10 +545,10 @@ export default function SetupBusinessPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Service Areas <span className="text-red-500">*</span>
                   </label>
-                  <p className="text-xs text-gray-400 mb-2">
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">
                     Type a suburb or area name and press Enter or &ldquo;Add&rdquo;.
                   </p>
                   <div className="flex gap-2">
@@ -465,7 +558,7 @@ export default function SetupBusinessPage() {
                       onChange={(e) => setServiceAreaInput(e.target.value)}
                       onKeyDown={handleAreaKeyDown}
                       placeholder="e.g. Claremont"
-                      className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent"
+                      className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-green focus:border-transparent text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"
                     />
                     <button
                       type="button"
@@ -502,7 +595,7 @@ export default function SetupBusinessPage() {
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="flex-1 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
                   ← Back
                 </button>
@@ -520,26 +613,26 @@ export default function SetupBusinessPage() {
           {/* Step 4 — Company Verification */}
           {step === 4 && (
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">Company Verification</h1>
-              <p className="text-gray-500 text-sm mb-6">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Company Verification</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
                 We verify your company registration with CIPC before proceeding.
               </p>
 
               {!verificationResult && (
                 <div className="text-center py-8">
                   <div className="w-12 h-12 border-2 border-brand-green border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                  <p className="text-gray-600 font-medium">Verifying company with CIPC…</p>
-                  <p className="text-sm text-gray-400 mt-1">Registration: {registrationNumber}</p>
+                  <p className="text-gray-600 dark:text-gray-300 font-medium">Verifying company with CIPC…</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Registration: {registrationNumber}</p>
                 </div>
               )}
 
               {verificationResult && verificationResult.isValid && (
                 <div className="text-center py-6">
-                  <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-green-600 text-2xl">✓</span>
+                  <div className="w-14 h-14 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-green-600 dark:text-green-400 text-2xl">✓</span>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Company Verified</h3>
-                  <p className="text-sm text-gray-500 mb-6">{verificationResult.message}</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Company Verified</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{verificationResult.message}</p>
                   <button
                     onClick={() => setStep(5)}
                     className="w-full py-3 bg-brand-green text-white font-semibold rounded-xl hover:bg-brand-green-dark transition-colors"
@@ -551,12 +644,12 @@ export default function SetupBusinessPage() {
 
               {verificationResult && !verificationResult.isValid && (
                 <div className="text-center py-6">
-                  <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-amber-600 text-2xl">!</span>
+                  <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-amber-600 dark:text-amber-400 text-2xl">!</span>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Verification Failed</h3>
-                  <p className="text-sm text-gray-500 mb-2">{verificationResult.message}</p>
-                  <p className="text-sm text-gray-600 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Verification Failed</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{verificationResult.message}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
                     Your profile has been created with status <strong>Under Review</strong>. An admin will review it shortly.
                   </p>
                   <button
@@ -572,7 +665,7 @@ export default function SetupBusinessPage() {
                 <div className="mt-6 flex gap-3">
                   <button
                     onClick={() => setStep(3)}
-                    className="flex-1 py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+                    className="flex-1 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     ← Back
                   </button>
@@ -591,29 +684,29 @@ export default function SetupBusinessPage() {
           {/* Step 5 — Ozow EFT Payment */}
           {step === 5 && (
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">Joining Fee Payment</h1>
-              <p className="text-gray-500 text-sm mb-6">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Joining Fee Payment</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
                 Pay the once-off joining fee via Ozow Instant EFT to activate your profile.
               </p>
 
-              <div className="bg-gray-50 rounded-xl border border-gray-200 p-6 mb-6">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-gray-500">Amount due</span>
-                  <span className="text-xl font-bold text-gray-900">R{joiningFee.toFixed(2)}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Amount due</span>
+                  <span className="text-xl font-bold text-gray-900 dark:text-gray-100">R{joiningFee.toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm text-gray-500">Company</span>
-                  <span className="text-sm font-medium text-gray-900">{companyName}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Company</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{companyName}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">Reference</span>
-                  <span className="text-sm font-medium text-gray-900">{registrationNumber}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Reference</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{registrationNumber}</span>
                 </div>
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select your bank</label>
-                <select className="w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-brand-green">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select your bank</label>
+                <select className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-green">
                   <option>FNB</option>
                   <option>Standard Bank</option>
                   <option>ABSA</option>
@@ -634,14 +727,14 @@ export default function SetupBusinessPage() {
                 <button
                   onClick={() => handlePayment(false)}
                   disabled={loading}
-                  className="w-full py-3 border border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-60"
+                  className="w-full py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-60"
                 >
                   {loading ? "Processing…" : "Cancel / Pay Later"}
                 </button>
                 <button
                   onClick={() => { setPaymentResult("failed"); handlePayment(false); }}
                   disabled={loading}
-                  className="w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-60"
+                  className="w-full py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors disabled:opacity-60"
                 >
                   Simulate Payment Failed
                 </button>
@@ -650,7 +743,7 @@ export default function SetupBusinessPage() {
               <div className="mt-4 text-center">
                 <button
                   onClick={() => setStep(4)}
-                  className="text-sm text-gray-500 hover:text-gray-700"
+                  className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 >
                   ← Back to Verification
                 </button>
@@ -663,27 +756,27 @@ export default function SetupBusinessPage() {
             <div className="text-center py-6">
               {paymentResult === "success" ? (
                 <>
-                  <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-green-600 text-2xl">✓</span>
+                  <div className="w-14 h-14 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-green-600 dark:text-green-400 text-2xl">✓</span>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Payment Successful</h3>
-                  <p className="text-sm text-gray-500 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Payment Successful</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                     Your joining fee of <strong>R{joiningFee.toFixed(2)}</strong> has been received.
                   </p>
-                  <p className="text-sm text-gray-600 mb-6">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
                     Profile status: <strong>{createdProfile.status}</strong>. You are now eligible for bookings once an admin approves your profile.
                   </p>
                 </>
               ) : (
                 <>
-                  <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-amber-600 text-2xl">⏳</span>
+                  <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-amber-600 dark:text-amber-400 text-2xl">⏳</span>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Payment Pending</h3>
-                  <p className="text-sm text-gray-500 mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Payment Pending</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                     The joining fee of <strong>R{joiningFee.toFixed(2)}</strong> is still outstanding.
                   </p>
-                  <p className="text-sm text-gray-600 mb-6">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
                     Profile status: <strong>{createdProfile.status}</strong>. Complete the payment to activate your profile.
                   </p>
                 </>

@@ -4,17 +4,64 @@ namespace CleanConnect.Application.Common;
 
 public sealed record ServiceDto(Guid Id, string Name, string Description, string Category, decimal BasePrice, int EstimatedDurationMinutes, int RequiredCleaners);
 
-public sealed record UserDto(Guid Id, string FirstName, string LastName, string Email, string PhoneNumber, UserRole Role, AccountStatus Status, CustomerProfileDto? CustomerProfile, CleanerProfileDto? CleanerProfile);
+public sealed record UserDto(Guid Id, string FirstName, string LastName, string Email, string PhoneNumber, UserRole Role, AccountStatus Status, string? IdNumber, CustomerProfileDto? CustomerProfile, CleanerProfileDto? CleanerProfile);
 
-public sealed record CustomerProfileDto(Guid Id, CustomerType CustomerType, string? CompanyName, string? VatNumber, string? BillingAddress, string? DefaultPaymentMethodReference);
+public sealed record CustomerProfileDto(Guid Id, CustomerType CustomerType, string? CompanyName, string? VatNumber, string? BillingAddress, string? DefaultPaymentMethodReference, List<AddressDto> Addresses);
+
+public sealed record AddressDto(Guid Id, string Label, string StreetAddress, string Suburb, string City, string Province, string PostalCode, string? AccessInstructions);
+
+public sealed record CustomerBookingDto(Guid Id, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt);
+
+public sealed record ProviderBookingDto(Guid Id, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, decimal? AddressLatitude, decimal? AddressLongitude, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt);
 
 public sealed record CleanerProfileDto(Guid Id, Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, decimal Rating, AccountStatus Status);
 
-public sealed record BookingDto(Guid Id, Guid CustomerProfileId, Guid ServiceId, Guid AddressId, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency);
+public sealed record BookingDto(Guid Id, Guid CustomerProfileId, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt);
+
+public sealed record BookingDetailDto(
+    Guid Id,
+    Guid CustomerProfileId,
+    Guid ServiceId,
+    string ServiceName,
+    string ServiceCategory,
+    Guid AddressId,
+    string AddressLabel,
+    string AddressSummary,
+    DateTimeOffset ScheduledStart,
+    DateTimeOffset ScheduledEnd,
+    BookingStatus Status,
+    PaymentStatus PaymentStatus,
+    decimal Price,
+    string Currency,
+    DateTimeOffset CreatedAt,
+    bool PayOnsite,
+    CleaningJobDetailDto? JobDetail,
+    List<AssignmentDto> Assignments,
+    List<ServiceMilestoneDto> Milestones
+);
+
+public sealed record CleaningJobDetailDto(
+    Guid Id,
+    string CleaningType,
+    int? NumberOfRooms,
+    decimal? SquareMeters,
+    bool HasPets,
+    string? SpecialInstructions,
+    List<string> BeforePhotos,
+    List<string> AfterPhotos,
+    string? CleanerNotes,
+    DateTimeOffset? TeamDispatchedAt,
+    DateTimeOffset? TeamArrivedAt,
+    DateTimeOffset? CompletedAt
+);
+
+public sealed record AssignmentDto(Guid Id, Guid? CleanerProfileId, string? CleanerName, Guid? ProviderId, string? ProviderName, AssignmentType AssignedType, AssignmentStatus Status, DateTimeOffset AssignedAt, DateTimeOffset? AcceptedAt);
+
+public sealed record ServiceMilestoneDto(string MilestoneType, string Status, string? Notes, DateTimeOffset OccurredAt);
 
 public sealed record ProviderDto(Guid Id, string CompanyName, string RegistrationNumber, ProviderStatus Status, JoiningFeeStatus JoiningFeeStatus, decimal JoiningFeeAmount, decimal CommissionRate, bool IsEligibleForBookings);
 
-public sealed record BusinessProfileDto(Guid Id, string CompanyName, string RegistrationNumber, string? TaxNumber, List<ServiceCategory> ServiceCategories, string? BaseLocation, List<string> ServiceAreas, ProviderStatus Status, JoiningFeeStatus JoiningFeeStatus, decimal JoiningFeeAmount, decimal CommissionRate, decimal? Latitude, decimal? Longitude, decimal ServiceRadiusKm, bool IsEligibleForBookings, DateTimeOffset CreatedAt);
+public sealed record BusinessProfileDto(Guid Id, string CompanyName, string RegistrationNumber, string? TaxNumber, List<ServiceCategory> ServiceCategories, string? BaseLocation, string? StreetAddress, string? Suburb, string? City, string? Province, string? PostalCode, List<string> ServiceAreas, ProviderStatus Status, JoiningFeeStatus JoiningFeeStatus, decimal JoiningFeeAmount, decimal CommissionRate, decimal? Latitude, decimal? Longitude, decimal ServiceRadiusKm, bool IsEligibleForBookings, DateTimeOffset CreatedAt);
 
 public sealed record ProviderJoiningFeeDto(Guid Id, Guid ProviderId, decimal Amount, string Currency, JoiningFeeStatus Status, string InvoiceNumber, DateOnly? DueDate, DateTimeOffset? PaidAt);
 
@@ -31,8 +78,6 @@ public sealed record CleaningRequestDto(Guid Id, Guid CustomerProfileId, Guid? A
 public sealed record CleaningRequestResponseDto(Guid Id, Guid CleaningRequestId, Guid ProviderId, string ProviderName, CleaningRequestResponseStatus Status, string? ResponseNotes, DateTimeOffset? RespondedAt);
 
 public sealed record NearbyProviderDto(Guid Id, string CompanyName, decimal Rating, decimal? DistanceKm);
-
-public sealed record CleaningJobDetailDto(Guid Id, Guid BookingId, string CleaningType, int? NumberOfRooms, decimal? SquareMeters, bool HasPets, string? SpecialInstructions, List<string> BeforePhotos, List<string> AfterPhotos, string? CleanerNotes, DateTimeOffset? TeamDispatchedAt, DateTimeOffset? TeamArrivedAt, DateTimeOffset? CompletedAt);
 
 public sealed record CleaningReportDto(Guid BookingId, string CompletionStatus, List<string> AfterPhotos, string? CleanerNotes, DateTimeOffset? CheckInTime, DateTimeOffset? CheckOutTime);
 

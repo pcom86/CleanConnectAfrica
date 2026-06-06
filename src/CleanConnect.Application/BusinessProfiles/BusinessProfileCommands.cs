@@ -36,6 +36,11 @@ public sealed record CreateBusinessProfileCommand(
     string? TaxNumber,
     List<ServiceCategory> ServiceCategories,
     string? BaseLocation,
+    string? StreetAddress,
+    string? Suburb,
+    string? City,
+    string? Province,
+    string? PostalCode,
     List<string> ServiceAreas,
     decimal? Latitude,
     decimal? Longitude,
@@ -89,7 +94,7 @@ public sealed class CreateBusinessProfileCommandHandler(CleanConnectDbContext db
         }
         else if (request.PaymentCompleted && request.JoiningFeeAmount > 0)
         {
-            status = ProviderStatus.JoiningFeePaid;
+            status = ProviderStatus.Approved;
             joiningFeeStatus = JoiningFeeStatus.Paid;
             isEligible = true;
         }
@@ -113,6 +118,11 @@ public sealed class CreateBusinessProfileCommandHandler(CleanConnectDbContext db
             TaxNumber = request.TaxNumber,
             ServiceCategories = request.ServiceCategories,
             BaseLocation = request.BaseLocation,
+            StreetAddress = request.StreetAddress,
+            Suburb = request.Suburb,
+            City = request.City,
+            Province = request.Province,
+            PostalCode = request.PostalCode,
             ServiceAreas = request.ServiceAreas ?? [],
             Status = status,
             JoiningFeeStatus = joiningFeeStatus,
@@ -160,7 +170,7 @@ public sealed class CreateBusinessProfileCommandHandler(CleanConnectDbContext db
 
     private static BusinessProfileDto ToDto(Provider p) => new(
         p.Id, p.CompanyName, p.RegistrationNumber, p.TaxNumber,
-        p.ServiceCategories, p.BaseLocation, p.ServiceAreas,
+        p.ServiceCategories, p.BaseLocation, p.StreetAddress, p.Suburb, p.City, p.Province, p.PostalCode, p.ServiceAreas,
         p.Status, p.JoiningFeeStatus,
         p.JoiningFeeAmount, p.CommissionRate, p.Latitude, p.Longitude,
         p.ServiceRadiusKm, p.IsEligibleForBookings, p.CreatedAt
@@ -168,6 +178,28 @@ public sealed class CreateBusinessProfileCommandHandler(CleanConnectDbContext db
 }
 
 public sealed record GetBusinessProfileQuery(Guid ProviderId) : IRequest<ApiResult<BusinessProfileDto>>;
+
+public sealed record GetMyBusinessProfileQuery(Guid ContactUserId) : IRequest<ApiResult<BusinessProfileDto>>;
+
+public sealed class GetMyBusinessProfileQueryHandler(CleanConnectDbContext dbContext)
+    : IRequestHandler<GetMyBusinessProfileQuery, ApiResult<BusinessProfileDto>>
+{
+    public async Task<ApiResult<BusinessProfileDto>> Handle(GetMyBusinessProfileQuery request, CancellationToken cancellationToken)
+    {
+        var provider = await dbContext.Providers
+            .SingleOrDefaultAsync(x => x.ContactUserId == request.ContactUserId, cancellationToken);
+
+        if (provider is null)
+            return ApiResult<BusinessProfileDto>.Failure("Business profile was not found.");
+
+        return ApiResult<BusinessProfileDto>.Success(new BusinessProfileDto(
+            provider.Id, provider.CompanyName, provider.RegistrationNumber, provider.TaxNumber,
+            provider.ServiceCategories, provider.BaseLocation, provider.StreetAddress, provider.Suburb, provider.City, provider.Province, provider.PostalCode, provider.ServiceAreas,
+            provider.Status, provider.JoiningFeeStatus,
+            provider.JoiningFeeAmount, provider.CommissionRate, provider.Latitude, provider.Longitude,
+            provider.ServiceRadiusKm, provider.IsEligibleForBookings, provider.CreatedAt));
+    }
+}
 
 public sealed class GetBusinessProfileQueryHandler(CleanConnectDbContext dbContext)
     : IRequestHandler<GetBusinessProfileQuery, ApiResult<BusinessProfileDto>>
@@ -182,7 +214,7 @@ public sealed class GetBusinessProfileQueryHandler(CleanConnectDbContext dbConte
 
         return ApiResult<BusinessProfileDto>.Success(new BusinessProfileDto(
             provider.Id, provider.CompanyName, provider.RegistrationNumber, provider.TaxNumber,
-            provider.ServiceCategories, provider.BaseLocation, provider.ServiceAreas,
+            provider.ServiceCategories, provider.BaseLocation, provider.StreetAddress, provider.Suburb, provider.City, provider.Province, provider.PostalCode, provider.ServiceAreas,
             provider.Status, provider.JoiningFeeStatus,
             provider.JoiningFeeAmount, provider.CommissionRate, provider.Latitude, provider.Longitude,
             provider.ServiceRadiusKm, provider.IsEligibleForBookings, provider.CreatedAt
@@ -214,7 +246,7 @@ public sealed class ListBusinessProfilesQueryHandler(CleanConnectDbContext dbCon
             .Take(request.PageSize)
             .Select(p => new BusinessProfileDto(
                 p.Id, p.CompanyName, p.RegistrationNumber, p.TaxNumber,
-                p.ServiceCategories, p.BaseLocation, p.ServiceAreas,
+                p.ServiceCategories, p.BaseLocation, p.StreetAddress, p.Suburb, p.City, p.Province, p.PostalCode, p.ServiceAreas,
                 p.Status, p.JoiningFeeStatus,
                 p.JoiningFeeAmount, p.CommissionRate, p.Latitude, p.Longitude,
                 p.ServiceRadiusKm, p.IsEligibleForBookings, p.CreatedAt))
@@ -222,6 +254,89 @@ public sealed class ListBusinessProfilesQueryHandler(CleanConnectDbContext dbCon
 
         return ApiResult<PagedResult<BusinessProfileDto>>.Success(
             new PagedResult<BusinessProfileDto>(items, request.Page, request.PageSize, total));
+    }
+}
+
+public sealed record UpdateBusinessProfileCommand(
+    Guid ProviderId,
+    string CompanyName,
+    string RegistrationNumber,
+    string? TaxNumber,
+    List<ServiceCategory> ServiceCategories,
+    string? BaseLocation,
+    string? StreetAddress,
+    string? Suburb,
+    string? City,
+    string? Province,
+    string? PostalCode,
+    List<string> ServiceAreas,
+    decimal? Latitude,
+    decimal? Longitude,
+    decimal ServiceRadiusKm,
+    decimal JoiningFeeAmount,
+    decimal CommissionRate,
+    bool IsEligibleForBookings
+) : IRequest<ApiResult<BusinessProfileDto>>;
+
+public sealed class UpdateBusinessProfileCommandValidator : AbstractValidator<UpdateBusinessProfileCommand>
+{
+    public UpdateBusinessProfileCommandValidator()
+    {
+        RuleFor(x => x.ProviderId).NotEmpty();
+        RuleFor(x => x.CompanyName).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.RegistrationNumber).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.TaxNumber).MaximumLength(50).When(x => x.TaxNumber is not null);
+        RuleFor(x => x.ServiceCategories).NotEmpty();
+        RuleFor(x => x.BaseLocation).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.ServiceRadiusKm).GreaterThan(0);
+        RuleFor(x => x.JoiningFeeAmount).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.CommissionRate).InclusiveBetween(0, 1);
+    }
+}
+
+public sealed class UpdateBusinessProfileCommandHandler(CleanConnectDbContext dbContext)
+    : IRequestHandler<UpdateBusinessProfileCommand, ApiResult<BusinessProfileDto>>
+{
+    public async Task<ApiResult<BusinessProfileDto>> Handle(UpdateBusinessProfileCommand request, CancellationToken cancellationToken)
+    {
+        var provider = await dbContext.Providers
+            .SingleOrDefaultAsync(x => x.Id == request.ProviderId, cancellationToken);
+
+        if (provider is null)
+            return ApiResult<BusinessProfileDto>.Failure("Business profile was not found.");
+
+        var duplicate = await dbContext.Providers.AnyAsync(
+            x => x.RegistrationNumber == request.RegistrationNumber && x.Id != request.ProviderId, cancellationToken);
+        if (duplicate)
+            return ApiResult<BusinessProfileDto>.Failure("A business with this registration number already exists.");
+
+        provider.CompanyName = request.CompanyName;
+        provider.RegistrationNumber = request.RegistrationNumber;
+        provider.TaxNumber = request.TaxNumber;
+        provider.ServiceCategories = request.ServiceCategories;
+        provider.BaseLocation = request.BaseLocation;
+        provider.StreetAddress = request.StreetAddress;
+        provider.Suburb = request.Suburb;
+        provider.City = request.City;
+        provider.Province = request.Province;
+        provider.PostalCode = request.PostalCode;
+        provider.ServiceAreas = request.ServiceAreas ?? [];
+        provider.Latitude = request.Latitude;
+        provider.Longitude = request.Longitude;
+        provider.ServiceRadiusKm = request.ServiceRadiusKm;
+        provider.JoiningFeeAmount = request.JoiningFeeAmount;
+        provider.CommissionRate = request.CommissionRate;
+        provider.IsEligibleForBookings = request.IsEligibleForBookings;
+        provider.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ApiResult<BusinessProfileDto>.Success(new BusinessProfileDto(
+            provider.Id, provider.CompanyName, provider.RegistrationNumber, provider.TaxNumber,
+            provider.ServiceCategories, provider.BaseLocation, provider.StreetAddress, provider.Suburb, provider.City, provider.Province, provider.PostalCode, provider.ServiceAreas,
+            provider.Status, provider.JoiningFeeStatus,
+            provider.JoiningFeeAmount, provider.CommissionRate, provider.Latitude, provider.Longitude,
+            provider.ServiceRadiusKm, provider.IsEligibleForBookings, provider.CreatedAt));
     }
 }
 

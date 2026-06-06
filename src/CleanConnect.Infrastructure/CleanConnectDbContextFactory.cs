@@ -9,7 +9,7 @@ public sealed class CleanConnectDbContextFactory : IDesignTimeDbContextFactory<C
     {
         var optionsBuilder = new DbContextOptionsBuilder<CleanConnectDbContext>();
         var connectionString = Environment.GetEnvironmentVariable("CLEANCONNECT_DATABASE")
-            ?? "Host=localhost;Port=5432;Database=cleanconnect;Username=postgres;Password=postgres";
+            ?? "Host=localhost;Port=50537;Database=cleanconnect;Username=postgres;Password=postgres";
 
         optionsBuilder.UseNpgsql(connectionString, npgsqlOptions =>
         {

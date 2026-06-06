@@ -51,7 +51,45 @@ public sealed class BusinessProfilesController(ISender sender) : ControllerBase
         var result = await sender.Send(new RejectProviderCommand(providerId, request?.Reason), cancellationToken);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
+
+    [HttpGet("me")]
+    public async Task<IActionResult> GetMyProfile([FromQuery] Guid contactUserId, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new GetMyBusinessProfileQuery(contactUserId), cancellationToken);
+        return result.Succeeded ? Ok(result) : NotFound(result);
+    }
+
+    [HttpPut("{providerId:guid}")]
+    public async Task<IActionResult> Update(Guid providerId, [FromBody] UpdateBusinessProfileOwnerRequest request, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new UpdateBusinessProfileCommand(
+            providerId, request.CompanyName, request.RegistrationNumber, request.TaxNumber,
+            request.ServiceCategories, request.BaseLocation, request.StreetAddress, request.Suburb, request.City, request.Province, request.PostalCode,
+            request.ServiceAreas, request.Latitude, request.Longitude, request.ServiceRadiusKm,
+            request.JoiningFeeAmount, request.CommissionRate, request.IsEligibleForBookings), cancellationToken);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
 }
+
+public sealed record UpdateBusinessProfileOwnerRequest(
+    string CompanyName,
+    string RegistrationNumber,
+    string? TaxNumber,
+    List<CleanConnect.Infrastructure.Entities.ServiceCategory> ServiceCategories,
+    string? BaseLocation,
+    string? StreetAddress,
+    string? Suburb,
+    string? City,
+    string? Province,
+    string? PostalCode,
+    List<string> ServiceAreas,
+    decimal? Latitude,
+    decimal? Longitude,
+    decimal ServiceRadiusKm,
+    decimal JoiningFeeAmount,
+    decimal CommissionRate,
+    bool IsEligibleForBookings
+);
 
 public sealed record VerifyRequest(string RegistrationNumber);
 

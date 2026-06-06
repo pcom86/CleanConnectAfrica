@@ -104,3 +104,4 @@ c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.AppHost\obj\Deb
 c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.AppHost\obj\Debug\net10.0\CleanConnect.AppHost.pdb
 c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.AppHost\obj\Debug\net10.0\CleanConnect.AppHost.genruntimeconfig.cache
 c:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.AppHost\obj\Debug\net10.0\ref\CleanConnect.AppHost.dll
+C:\Users\Public\pcom86\repos\CleanConnectAfrica\src\CleanConnect.AppHost\obj\Debug\net10.0\CleanConnect.AppHost.sourcelink.json

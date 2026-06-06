@@ -1,4 +1,4 @@
-import type { ApiResult, User, BusinessProfile, PagedResult, AdminStats, MembershipPlan } from "./types";
+import type { ApiResult, User, BusinessProfile, PagedResult, AdminStats, MembershipPlan, Service, Booking, ProviderBooking, Payment, BookingDetail, CleanerProfile } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
@@ -36,7 +36,18 @@ export async function registerUser(data: {
   passwordHash: string;
   role: string;
   status: string;
-  customerProfile?: { customerType: string } | null;
+  idNumber?: string | null;
+  customerProfile?: {
+    customerType: string;
+    address?: {
+      streetAddress: string;
+      suburb: string;
+      city: string;
+      province: string;
+      postalCode: string;
+      label?: string;
+    } | null;
+  } | null;
 }): Promise<ApiResult<User>> {
   return post<User>("/api/v1/users", data);
 }
@@ -55,6 +66,11 @@ export async function createBusinessProfile(data: {
   taxNumber?: string | null;
   serviceCategories: string[];
   baseLocation: string;
+  streetAddress?: string | null;
+  suburb?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postalCode?: string | null;
   serviceAreas: string[];
   latitude?: number | null;
   longitude?: number | null;
@@ -104,6 +120,13 @@ export async function updateUser(userId: string, data: {
   phoneNumber: string;
   role: string;
   status: string;
+  customerProfile?: {
+    customerType: string;
+    companyName: string | null;
+    vatNumber: string | null;
+    billingAddress: string | null;
+    defaultPaymentMethodReference: string | null;
+  };
 }): Promise<ApiResult<User>> {
   return put<User>(`/api/v1/users/${userId}`, data);
 }
@@ -123,6 +146,54 @@ export async function approveBusinessProfile(providerId: string): Promise<ApiRes
 
 export async function rejectBusinessProfile(providerId: string, reason?: string): Promise<ApiResult<BusinessProfile>> {
   return post<BusinessProfile>(`/api/v1/business-profiles/${providerId}/reject`, { reason });
+}
+
+export async function updateBusinessProfile(providerId: string, data: {
+  companyName: string;
+  registrationNumber: string;
+  taxNumber?: string | null;
+  serviceCategories: string[];
+  baseLocation: string;
+  streetAddress?: string | null;
+  suburb?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postalCode?: string | null;
+  serviceAreas: string[];
+  latitude?: number | null;
+  longitude?: number | null;
+  serviceRadiusKm: number;
+  joiningFeeAmount: number;
+  commissionRate: number;
+  isEligibleForBookings: boolean;
+}): Promise<ApiResult<BusinessProfile>> {
+  return put<BusinessProfile>(`/api/v1/admin/business-profiles/${providerId}`, data);
+}
+
+export async function getMyBusinessProfile(contactUserId: string): Promise<ApiResult<BusinessProfile>> {
+  return get<BusinessProfile>(`/api/v1/business-profiles/me?contactUserId=${contactUserId}`);
+}
+
+export async function updateMyBusinessProfile(providerId: string, data: {
+  companyName: string;
+  registrationNumber: string;
+  taxNumber?: string | null;
+  serviceCategories: string[];
+  baseLocation: string;
+  streetAddress?: string | null;
+  suburb?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postalCode?: string | null;
+  serviceAreas: string[];
+  latitude?: number | null;
+  longitude?: number | null;
+  serviceRadiusKm: number;
+  joiningFeeAmount: number;
+  commissionRate: number;
+  isEligibleForBookings: boolean;
+}): Promise<ApiResult<BusinessProfile>> {
+  return put<BusinessProfile>(`/api/v1/business-profiles/${providerId}`, data);
 }
 
 export async function listAdminMembershipPlans(): Promise<ApiResult<MembershipPlan[]>> {
@@ -159,4 +230,96 @@ export async function deleteMembershipPlan(planId: string): Promise<ApiResult<bo
     headers: { "Content-Type": "application/json" },
   });
   return res.json() as Promise<ApiResult<boolean>>;
+}
+
+export async function getUser(userId: string): Promise<ApiResult<User>> {
+  return get<User>(`/api/v1/users/${userId}`);
+}
+
+export async function listServices(): Promise<ApiResult<Service[]>> {
+  const res = await fetch(`${BASE_URL}/api/v1/services`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    return { succeeded: false, data: null, error: body.error ?? `HTTP ${res.status}` };
+  }
+  const data = (await res.json()) as Service[];
+  return { succeeded: true, data, error: null };
+}
+
+export async function createCleaningBooking(data: {
+  customerProfileId: string;
+  serviceId: string;
+  addressId: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  specialInstructions?: string | null;
+  accessNotes?: string | null;
+  hasPets?: boolean;
+  parkingInformation?: string | null;
+  payOnsite?: boolean;
+}): Promise<ApiResult<Booking>> {
+  return post<Booking>("/api/v1/cleaning-bookings", data);
+}
+
+export async function getCustomerBookings(customerProfileId: string, page = 1, pageSize = 20): Promise<ApiResult<PagedResult<Booking>>> {
+  return get<PagedResult<Booking>>(`/api/v1/customer-bookings/${customerProfileId}?page=${page}&pageSize=${pageSize}`);
+}
+
+export async function getProviderBookings(page = 1, pageSize = 50): Promise<ApiResult<PagedResult<ProviderBooking>>> {
+  return get<PagedResult<ProviderBooking>>(`/api/v1/provider-bookings?page=${page}&pageSize=${pageSize}`);
+}
+
+export async function addCustomerAddress(userId: string, data: {
+  label: string;
+  streetAddress: string;
+  suburb: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  accessInstructions?: string | null;
+}): Promise<ApiResult<User>> {
+  return post<User>(`/api/v1/users/${userId}/addresses`, data);
+}
+
+export async function createBookingPayment(bookingId: string, customerProfileId: string): Promise<ApiResult<{ paymentId: string; paymentUrl: string; amount: number; currency: string }>> {
+  return post<{ paymentId: string; paymentUrl: string; amount: number; currency: string }>(`/api/v1/payments/bookings/${bookingId}`, { customerProfileId });
+}
+
+export async function confirmBookingPayment(paymentId: string, gateway: string, gatewayReference: string, status: string): Promise<ApiResult<Payment>> {
+  return post<Payment>("/api/v1/payments/confirm", { paymentId, gateway, gatewayReference, status });
+}
+
+export async function getPayment(paymentId: string): Promise<ApiResult<Payment>> {
+  return get<Payment>(`/api/v1/payments/${paymentId}`);
+}
+
+export async function getBookingById(bookingId: string): Promise<ApiResult<BookingDetail>> {
+  return get<BookingDetail>(`/api/v1/cleaning-bookings/${bookingId}`);
+}
+
+export async function acceptBooking(bookingId: string, providerId: string): Promise<ApiResult<Booking>> {
+  return post<Booking>(`/api/v1/cleaning-bookings/${bookingId}/accept`, { providerId });
+}
+
+export async function assignCleanerToBooking(bookingId: string, cleanerProfileId: string): Promise<ApiResult<Booking>> {
+  return post<Booking>(`/api/v1/cleaning-bookings/${bookingId}/assign-cleaner`, { cleanerProfileId });
+}
+
+export async function updateBookingStatus(bookingId: string, newStatus: string, notes?: string | null): Promise<ApiResult<Booking>> {
+  return put<Booking>(`/api/v1/cleaning-bookings/${bookingId}/status`, { newStatus, notes });
+}
+
+export async function completeBooking(bookingId: string, afterPhotos: string[], cleanerNotes: string, completedChecklistItems?: string[]): Promise<ApiResult<Booking>> {
+  return post<Booking>(`/api/v1/cleaning-bookings/${bookingId}/complete`, { afterPhotos, cleanerNotes, completedChecklistItems });
+}
+
+export async function getMyProviderBookings(contactUserId: string, page = 1, pageSize = 50): Promise<ApiResult<PagedResult<ProviderBooking>>> {
+  return get<PagedResult<ProviderBooking>>(`/api/v1/provider-bookings/my?contactUserId=${contactUserId}&page=${page}&pageSize=${pageSize}`);
+}
+
+export async function getProviderCleaners(providerId: string): Promise<ApiResult<CleanerProfile[]>> {
+  return get<CleanerProfile[]>(`/api/v1/cleaners?providerId=${providerId}`);
 }

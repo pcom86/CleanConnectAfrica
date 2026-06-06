@@ -10,6 +10,7 @@ public sealed class User
     public string PasswordHash { get; set; } = string.Empty;
     public UserRole Role { get; set; }
     public AccountStatus Status { get; set; } = AccountStatus.Active;
+    public string? IdNumber { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
@@ -88,6 +89,7 @@ public sealed class Booking
     public string? AccessNotes { get; set; }
     public bool HasPets { get; set; }
     public string? ParkingInformation { get; set; }
+    public bool PayOnsite { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
@@ -149,6 +151,11 @@ public sealed class Provider
     public string? TaxNumber { get; set; }
     public List<ServiceCategory> ServiceCategories { get; set; } = [];
     public string? BaseLocation { get; set; }
+    public string? StreetAddress { get; set; }
+    public string? Suburb { get; set; }
+    public string? City { get; set; }
+    public string? Province { get; set; }
+    public string? PostalCode { get; set; }
     public List<string> ServiceAreas { get; set; } = [];
     public ProviderStatus Status { get; set; } = ProviderStatus.ApplicationStarted;
     public decimal Rating { get; set; }

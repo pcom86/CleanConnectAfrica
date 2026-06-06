@@ -9,6 +9,13 @@ namespace CleanConnect.Api.Controllers;
 [Route("api/v1/cleaning-bookings")]
 public sealed class CleaningBookingsController(ISender sender) : ControllerBase
 {
+    [HttpGet("{bookingId:guid}")]
+    public async Task<IActionResult> GetBooking(Guid bookingId, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new GetBookingByIdQuery(bookingId), cancellationToken);
+        return result.Succeeded ? Ok(result) : NotFound(result);
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateCleaningBooking([FromBody] CreateCleaningBookingCommand command, CancellationToken cancellationToken)
     {
@@ -23,6 +30,20 @@ public sealed class CleaningBookingsController(ISender sender) : ControllerBase
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPost("{bookingId:guid}/accept")]
+    public async Task<IActionResult> AcceptBooking(Guid bookingId, [FromBody] AcceptBookingRequest request, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new AcceptBookingCommand(bookingId, request.ProviderId), cancellationToken);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpPost("{bookingId:guid}/assign-cleaner")]
+    public async Task<IActionResult> AssignCleaner(Guid bookingId, [FromBody] AssignCleanerRequest request, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new AssignCleanerToBookingCommand(bookingId, request.CleanerProfileId), cancellationToken);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPost("{bookingId:guid}/complete")]
     public async Task<IActionResult> CompleteCleaning(Guid bookingId, [FromBody] CompleteCleaningRequest request, CancellationToken cancellationToken)
     {
@@ -32,4 +53,6 @@ public sealed class CleaningBookingsController(ISender sender) : ControllerBase
 }
 
 public sealed record UpdateCleaningBookingStatusRequest(BookingStatus NewStatus, string? Notes);
+public sealed record AcceptBookingRequest(Guid ProviderId);
+public sealed record AssignCleanerRequest(Guid CleanerProfileId);
 public sealed record CompleteCleaningRequest(List<string> AfterPhotos, string? CleanerNotes, List<string>? CompletedChecklistItems);

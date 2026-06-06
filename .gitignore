@@ -4,6 +4,10 @@ obj/
 *.user
 *.suo
 .vs/
+*.exe
+*.dll
+dist/
+publish/
 
 # Node / Next.js
 node_modules/

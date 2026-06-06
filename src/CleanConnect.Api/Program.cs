@@ -42,11 +42,11 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CleanConnectDbContext>();
     db.Database.Migrate();
+    var now = DateTimeOffset.UtcNow;
 
     // Seed default admin user if none exists
     if (!db.Users.Any(x => x.Role == UserRole.Admin))
     {
-        var now = DateTimeOffset.UtcNow;
         db.Users.Add(new User
         {
             Id = Guid.NewGuid(),
@@ -66,7 +66,6 @@ using (var scope = app.Services.CreateScope())
     // Seed default membership plans if none exist
     if (!db.ProviderMembershipPlans.Any())
     {
-        var now = DateTimeOffset.UtcNow;
         db.ProviderMembershipPlans.AddRange(
             new ProviderMembershipPlan
             {
@@ -95,6 +94,102 @@ using (var scope = app.Services.CreateScope())
                 UpdatedAt = now
             }
         );
+        db.SaveChanges();
+    }
+
+    // Seed default services if none exist
+    var existingServices = db.Services.Select(s => s.Name).ToList();
+
+    var servicesToAdd = new List<Service>();
+
+    if (!existingServices.Contains("Standard Home Cleaning"))
+    {
+        servicesToAdd.Add(new Service
+        {
+            Id = Guid.NewGuid(),
+            Name = "Standard Home Cleaning",
+            Description = "Regular home cleaning service including dusting, vacuuming, mopping and bathroom sanitisation.",
+            Category = ServiceCategory.Cleaning.ToString(),
+            BasePrice = 450m,
+            EstimatedDurationMinutes = 120,
+            RequiredCleaners = 1,
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+    }
+
+    if (!existingServices.Contains("Deep Spring Cleaning"))
+    {
+        servicesToAdd.Add(new Service
+        {
+            Id = Guid.NewGuid(),
+            Name = "Deep Spring Cleaning",
+            Description = "Comprehensive deep clean including inside appliances, windows, and thorough scrubbing of all surfaces.",
+            Category = ServiceCategory.Cleaning.ToString(),
+            BasePrice = 950m,
+            EstimatedDurationMinutes = 240,
+            RequiredCleaners = 2,
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+    }
+
+    if (!existingServices.Contains("Wash, Dry & Fold"))
+    {
+        servicesToAdd.Add(new Service
+        {
+            Id = Guid.NewGuid(),
+            Name = "Wash, Dry & Fold",
+            Description = "Collection, washing, drying, folding and delivery of laundry.",
+            Category = ServiceCategory.Laundry.ToString(),
+            BasePrice = 180m,
+            EstimatedDurationMinutes = 180,
+            RequiredCleaners = 1,
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+    }
+
+    if (!existingServices.Contains("Premium Car Wash"))
+    {
+        servicesToAdd.Add(new Service
+        {
+            Id = Guid.NewGuid(),
+            Name = "Premium Car Wash",
+            Description = "Full exterior wash, interior vacuum, dashboard polish and tyre shine at your location.",
+            Category = ServiceCategory.CarWash.ToString(),
+            BasePrice = 250m,
+            EstimatedDurationMinutes = 45,
+            RequiredCleaners = 1,
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+    }
+
+    if (!existingServices.Contains("Pest Control Service"))
+    {
+        servicesToAdd.Add(new Service
+        {
+            Id = Guid.NewGuid(),
+            Name = "Pest Control Service",
+            Description = "Professional pest control treatment for homes and offices including rodents, insects and termites.",
+            Category = ServiceCategory.PestControl.ToString(),
+            BasePrice = 600m,
+            EstimatedDurationMinutes = 90,
+            RequiredCleaners = 1,
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+    }
+
+    if (servicesToAdd.Count > 0)
+    {
+        db.Services.AddRange(servicesToAdd);
         db.SaveChanges();
     }
 }

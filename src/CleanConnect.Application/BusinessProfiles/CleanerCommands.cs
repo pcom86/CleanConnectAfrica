@@ -91,3 +91,20 @@ public sealed class RegisterCleanerCommandHandler(CleanConnectDbContext dbContex
         return ApiResult<UserDto>.Success(UserMappings.ToDto(user));
     }
 }
+
+// --- List cleaners for a provider ---
+public sealed record GetProviderCleanersQuery(Guid ProviderId) : IRequest<ApiResult<List<CleanerProfileDto>>>;
+
+public sealed class GetProviderCleanersQueryHandler(CleanConnectDbContext dbContext) : IRequestHandler<GetProviderCleanersQuery, ApiResult<List<CleanerProfileDto>>>
+{
+    public async Task<ApiResult<List<CleanerProfileDto>>> Handle(GetProviderCleanersQuery request, CancellationToken cancellationToken)
+    {
+        var items = await dbContext.CleanerProfiles
+            .AsNoTracking()
+            .Where(x => x.ProviderId == request.ProviderId && x.Status == AccountStatus.Active)
+            .Select(x => new CleanerProfileDto(x.Id, x.ProviderId, x.EmploymentType, x.Skills, x.ServiceZones, x.Rating, x.Status))
+            .ToListAsync(cancellationToken);
+
+        return ApiResult<List<CleanerProfileDto>>.Success(items);
+    }
+}

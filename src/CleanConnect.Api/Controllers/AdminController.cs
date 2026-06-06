@@ -62,7 +62,38 @@ public sealed class AdminController(ISender sender, CleanConnectDbContext dbCont
         var result = await sender.Send(new DeleteMembershipPlanCommand(id), cancellationToken);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
+
+    [HttpPut("business-profiles/{id:guid}")]
+    public async Task<IActionResult> UpdateBusinessProfile(Guid id, [FromBody] UpdateBusinessProfileRequest request, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new UpdateBusinessProfileCommand(
+            id, request.CompanyName, request.RegistrationNumber, request.TaxNumber,
+            request.ServiceCategories, request.BaseLocation, request.StreetAddress, request.Suburb, request.City, request.Province, request.PostalCode,
+            request.ServiceAreas, request.Latitude, request.Longitude, request.ServiceRadiusKm,
+            request.JoiningFeeAmount, request.CommissionRate, request.IsEligibleForBookings), cancellationToken);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
 }
+
+public sealed record UpdateBusinessProfileRequest(
+    string CompanyName,
+    string RegistrationNumber,
+    string? TaxNumber,
+    List<CleanConnect.Infrastructure.Entities.ServiceCategory> ServiceCategories,
+    string? BaseLocation,
+    string? StreetAddress,
+    string? Suburb,
+    string? City,
+    string? Province,
+    string? PostalCode,
+    List<string> ServiceAreas,
+    decimal? Latitude,
+    decimal? Longitude,
+    decimal ServiceRadiusKm,
+    decimal JoiningFeeAmount,
+    decimal CommissionRate,
+    bool IsEligibleForBookings
+);
 
 public sealed record UpdateMembershipPlanRequest(
     string Name,

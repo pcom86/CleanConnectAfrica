@@ -7,11 +7,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CleanConnect.Application.Users;
 
-public sealed record CustomerProfileRequest(CustomerType CustomerType, string? CompanyName, string? VatNumber, string? BillingAddress, string? DefaultPaymentMethodReference);
+public sealed record AddressRequest(string StreetAddress, string Suburb, string City, string Province, string PostalCode, string? Label = null);
+
+public sealed record CustomerProfileRequest(CustomerType CustomerType, string? CompanyName, string? VatNumber, string? BillingAddress, string? DefaultPaymentMethodReference, AddressRequest? Address = null);
 
 public sealed record CleanerProfileRequest(Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, AccountStatus Status = AccountStatus.Active);
 
-public sealed record CreateUserCommand(string FirstName, string LastName, string Email, string PhoneNumber, string PasswordHash, UserRole Role, AccountStatus Status = AccountStatus.Active, CustomerProfileRequest? CustomerProfile = null, CleanerProfileRequest? CleanerProfile = null) : IRequest<ApiResult<UserDto>>;
+public sealed record CreateUserCommand(string FirstName, string LastName, string Email, string PhoneNumber, string PasswordHash, UserRole Role, AccountStatus Status = AccountStatus.Active, string? IdNumber = null, CustomerProfileRequest? CustomerProfile = null, CleanerProfileRequest? CleanerProfile = null) : IRequest<ApiResult<UserDto>>;
 
 public sealed record UpdateUserRequest(string FirstName, string LastName, string Email, string PhoneNumber, UserRole Role, AccountStatus Status, CustomerProfileRequest? CustomerProfile = null, CleanerProfileRequest? CleanerProfile = null);
 
@@ -29,6 +31,9 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
         RuleFor(x => x.CustomerProfile!.CustomerType).IsInEnum().When(x => x.CustomerProfile is not null);
         RuleFor(x => x.CleanerProfile!.EmploymentType).IsInEnum().When(x => x.CleanerProfile is not null);
         RuleFor(x => x.CleanerProfile!.Status).IsInEnum().When(x => x.CleanerProfile is not null);
+        RuleFor(x => x.IdNumber)
+            .Must(x => string.IsNullOrEmpty(x) || (x.Length == 13 && x.All(char.IsDigit)))
+            .WithMessage("ID number must be exactly 13 digits.");
     }
 }
 
@@ -65,6 +70,7 @@ public sealed class CreateUserCommandHandler(CleanConnectDbContext dbContext) : 
             PasswordHash = request.PasswordHash,
             Role = request.Role,
             Status = request.Status,
+            IdNumber = string.IsNullOrWhiteSpace(request.IdNumber) ? null : request.IdNumber.Trim(),
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -83,6 +89,26 @@ public sealed class CreateUserCommandHandler(CleanConnectDbContext dbContext) : 
                 CreatedAt = now,
                 UpdatedAt = now
             };
+
+            if (request.CustomerProfile.Address is not null)
+            {
+                user.CustomerProfile.Addresses = new List<Address>
+                {
+                    new Address
+                    {
+                        Id = Guid.NewGuid(),
+                        CustomerProfileId = user.CustomerProfile.Id,
+                        Label = request.CustomerProfile.Address.Label ?? "Primary",
+                        StreetAddress = request.CustomerProfile.Address.StreetAddress.Trim(),
+                        Suburb = request.CustomerProfile.Address.Suburb.Trim(),
+                        City = request.CustomerProfile.Address.City.Trim(),
+                        Province = request.CustomerProfile.Address.Province.Trim(),
+                        PostalCode = request.CustomerProfile.Address.PostalCode.Trim(),
+                        CreatedAt = now,
+                        UpdatedAt = now
+                    }
+                };
+            }
         }
 
         if (request.CleanerProfile is not null)
@@ -279,18 +305,103 @@ public sealed class UpdateUserStatusCommandHandler(CleanConnectDbContext dbConte
     }
 }
 
+public sealed record GetUserByIdQuery(Guid UserId) : IRequest<ApiResult<UserDto>>;
+
+public sealed class GetUserByIdQueryHandler(CleanConnectDbContext dbContext) : IRequestHandler<GetUserByIdQuery, ApiResult<UserDto>>
+{
+    public async Task<ApiResult<UserDto>> Handle(GetUserByIdQuery request, CancellationToken cancellationToken)
+    {
+        var user = await dbContext.Users
+            .AsNoTracking()
+            .Include(x => x.CustomerProfile)
+            .ThenInclude(cp => cp!.Addresses)
+            .Include(x => x.CleanerProfile)
+            .SingleOrDefaultAsync(x => x.Id == request.UserId, cancellationToken);
+
+        if (user is null)
+            return ApiResult<UserDto>.Failure("User was not found.");
+
+        return ApiResult<UserDto>.Success(UserMappings.ToDto(user));
+    }
+}
+
+public sealed record AddCustomerAddressCommand(Guid UserId, string Label, string StreetAddress, string Suburb, string City, string Province, string PostalCode, string? AccessInstructions = null) : IRequest<ApiResult<UserDto>>;
+
+public sealed class AddCustomerAddressCommandValidator : AbstractValidator<AddCustomerAddressCommand>
+{
+    public AddCustomerAddressCommandValidator()
+    {
+        RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.Label).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.StreetAddress).NotEmpty().MaximumLength(255);
+        RuleFor(x => x.Suburb).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.City).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Province).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.PostalCode).NotEmpty().MaximumLength(20);
+    }
+}
+
+public sealed class AddCustomerAddressCommandHandler(CleanConnectDbContext dbContext) : IRequestHandler<AddCustomerAddressCommand, ApiResult<UserDto>>
+{
+    public async Task<ApiResult<UserDto>> Handle(AddCustomerAddressCommand request, CancellationToken cancellationToken)
+    {
+        var user = await dbContext.Users
+            .Include(x => x.CustomerProfile)
+            .ThenInclude(cp => cp!.Addresses)
+            .SingleOrDefaultAsync(x => x.Id == request.UserId, cancellationToken);
+
+        if (user is null)
+            return ApiResult<UserDto>.Failure("User was not found.");
+
+        if (user.CustomerProfile is null)
+            return ApiResult<UserDto>.Failure("User does not have a customer profile.");
+
+        var now = DateTimeOffset.UtcNow;
+        user.CustomerProfile.Addresses.Add(new Address
+        {
+            Id = Guid.NewGuid(),
+            CustomerProfileId = user.CustomerProfile.Id,
+            Label = request.Label,
+            StreetAddress = request.StreetAddress.Trim(),
+            Suburb = request.Suburb.Trim(),
+            City = request.City.Trim(),
+            Province = request.Province.Trim(),
+            PostalCode = request.PostalCode.Trim(),
+            AccessInstructions = request.AccessInstructions,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+
+        user.CustomerProfile.UpdatedAt = now;
+        user.UpdatedAt = now;
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ApiResult<UserDto>.Success(UserMappings.ToDto(user));
+    }
+}
+
 internal static class UserMappings
 {
     public static UserDto ToDto(User user)
     {
         var customerProfile = user.CustomerProfile is null
             ? null
-            : new CustomerProfileDto(user.CustomerProfile.Id, user.CustomerProfile.CustomerType, user.CustomerProfile.CompanyName, user.CustomerProfile.VatNumber, user.CustomerProfile.BillingAddress, user.CustomerProfile.DefaultPaymentMethodReference);
+            : new CustomerProfileDto(
+                user.CustomerProfile.Id,
+                user.CustomerProfile.CustomerType,
+                user.CustomerProfile.CompanyName,
+                user.CustomerProfile.VatNumber,
+                user.CustomerProfile.BillingAddress,
+                user.CustomerProfile.DefaultPaymentMethodReference,
+                (user.CustomerProfile.Addresses ?? new List<Address>())
+                    .OrderBy(a => a.CreatedAt)
+                    .Select(a => new AddressDto(a.Id, a.Label, a.StreetAddress, a.Suburb, a.City, a.Province, a.PostalCode, a.AccessInstructions))
+                    .ToList());
 
         var cleanerProfile = user.CleanerProfile is null
             ? null
             : new CleanerProfileDto(user.CleanerProfile.Id, user.CleanerProfile.ProviderId, user.CleanerProfile.EmploymentType, user.CleanerProfile.Skills, user.CleanerProfile.ServiceZones, user.CleanerProfile.Rating, user.CleanerProfile.Status);
 
-        return new UserDto(user.Id, user.FirstName, user.LastName, user.Email, user.PhoneNumber, user.Role, user.Status, customerProfile, cleanerProfile);
+        return new UserDto(user.Id, user.FirstName, user.LastName, user.Email, user.PhoneNumber, user.Role, user.Status, user.IdNumber, customerProfile, cleanerProfile);
     }
 }
