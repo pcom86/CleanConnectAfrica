@@ -1,4 +1,4 @@
-import type { ApiResult, User, BusinessProfile, PagedResult, AdminStats, MembershipPlan, Service, Booking, ProviderBooking, Payment, BookingDetail, CleanerProfile } from "./types";
+import type { ApiResult, User, BusinessProfile, PagedResult, AdminStats, MembershipPlan, Service, Booking, ProviderBooking, Payment, BookingDetail, CleanerProfile, SupervisorProfile, JobCheckIn, JobCheckOut, PostJobReport, TeamMember } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
@@ -57,6 +57,14 @@ export async function loginUser(data: {
   password: string;
 }): Promise<ApiResult<User>> {
   return post<User>("/api/v1/auth/login", data);
+}
+
+export async function changePassword(data: {
+  email: string;
+  currentPassword: string;
+  newPassword: string;
+}): Promise<ApiResult<User>> {
+  return post<User>("/api/v1/auth/change-password", data);
 }
 
 export async function createBusinessProfile(data: {
@@ -322,4 +330,126 @@ export async function getMyProviderBookings(contactUserId: string, page = 1, pag
 
 export async function getProviderCleaners(providerId: string): Promise<ApiResult<CleanerProfile[]>> {
   return get<CleanerProfile[]>(`/api/v1/cleaners?providerId=${providerId}`);
+}
+
+export async function registerCleaner(data: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  passwordHash: string;
+  providerId: string | null;
+  employmentType: string;
+  skills: string;
+  serviceZones: string;
+}): Promise<ApiResult<User>> {
+  return post<User>("/api/v1/cleaners", data);
+}
+
+export async function registerStaff(data: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  passwordHash: string;
+  providerId: string | null;
+  employmentType: string;
+  skills: string;
+  serviceZones: string;
+  staffRole: string;
+}): Promise<ApiResult<User>> {
+  return post<User>("/api/v1/staff", data);
+}
+
+export async function updateStaff(userId: string, data: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  employmentType: string;
+  skills: string;
+  serviceZones: string;
+  status: string;
+  staffRole: string;
+  providerId: string | null;
+}): Promise<ApiResult<User>> {
+  return put<User>(`/api/v1/staff/${userId}`, data);
+}
+
+export async function getProviderSupervisors(providerId: string): Promise<ApiResult<SupervisorProfile[]>> {
+  return get<SupervisorProfile[]>(`/api/v1/supervisors?providerId=${providerId}`);
+}
+
+export async function getSupervisorBookings(supervisorUserId: string): Promise<ApiResult<Booking[]>> {
+  return get<Booking[]>(`/api/v1/supervisors/my-bookings?supervisorUserId=${supervisorUserId}`);
+}
+
+export async function getProviderTeam(providerId: string): Promise<ApiResult<TeamMember[]>> {
+  return get<TeamMember[]>(`/api/v1/cleaning-bookings/team/${providerId}`);
+}
+
+export async function assignTeam(bookingId: string, cleanerProfileIds: string[], supervisorProfileId: string | null): Promise<ApiResult<Booking>> {
+  return post<Booking>(`/api/v1/cleaning-bookings/${bookingId}/assign-team`, { cleanerProfileIds, supervisorProfileId });
+}
+
+export async function registerSupervisor(data: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  passwordHash: string;
+  providerId: string | null;
+  employmentType: string;
+  skills: string;
+  serviceZones: string;
+}): Promise<ApiResult<User>> {
+  return post<User>("/api/v1/supervisors", data);
+}
+
+export async function checkIn(data: {
+  bookingId: string;
+  userId: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  photoUrl?: string | null;
+  notes?: string | null;
+}): Promise<ApiResult<JobCheckIn>> {
+  return post<JobCheckIn>("/api/v1/supervisors/check-in", data);
+}
+
+export async function checkOut(data: {
+  bookingId: string;
+  userId: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  photoUrl?: string | null;
+  notes?: string | null;
+  workSummary?: string | null;
+}): Promise<ApiResult<JobCheckOut>> {
+  return post<JobCheckOut>("/api/v1/supervisors/check-out", data);
+}
+
+export async function createPostJobReport(data: {
+  bookingId: string;
+  compiledByUserId: string;
+  summary: string;
+  issuesFound?: string | null;
+  recommendations?: string | null;
+  overallRating?: number | null;
+  photos: string[];
+  checklistResults: { taskName: string; completed: boolean; notes?: string | null }[];
+}): Promise<ApiResult<PostJobReport>> {
+  return post<PostJobReport>("/api/v1/supervisors/post-job-report", data);
+}
+
+export async function getPostJobReport(bookingId: string): Promise<ApiResult<PostJobReport>> {
+  return get<PostJobReport>(`/api/v1/supervisors/post-job-report/${bookingId}`);
+}
+
+export async function getBookingCheckIns(bookingId: string): Promise<ApiResult<JobCheckIn[]>> {
+  return get<JobCheckIn[]>(`/api/v1/supervisors/check-ins/${bookingId}`);
+}
+
+export async function getBookingCheckOuts(bookingId: string): Promise<ApiResult<JobCheckOut[]>> {
+  return get<JobCheckOut[]>(`/api/v1/supervisors/check-outs/${bookingId}`);
 }

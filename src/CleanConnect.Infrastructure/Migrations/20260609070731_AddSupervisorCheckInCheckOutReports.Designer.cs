@@ -3,6 +3,7 @@ using System;
 using CleanConnect.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CleanConnect.Infrastructure.Migrations
 {
     [DbContext(typeof(CleanConnectDbContext))]
-    partial class CleanConnectDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260609070731_AddSupervisorCheckInCheckOutReports")]
+    partial class AddSupervisorCheckInCheckOutReports
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -125,12 +128,6 @@ namespace CleanConnect.Infrastructure.Migrations
 
                     b.Property<Guid?>("SupervisorProfileId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("TeamCleanerProfileIdsJson")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("jsonb")
-                        .HasDefaultValue("[]");
 
                     b.HasKey("Id");
 
@@ -391,13 +388,6 @@ namespace CleanConnect.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
-
-                    b.Property<string>("StaffRole")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasDefaultValue("Cleaner");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1521,11 +1511,6 @@ namespace CleanConnect.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<bool>("MustChangePassword")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(false);
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()

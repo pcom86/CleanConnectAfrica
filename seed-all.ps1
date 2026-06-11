@@ -57,8 +57,10 @@ function Invoke-ApiGet($Path) {
 
 function Get-UserByEmail($Email) {
     $resp = Invoke-ApiGet "/api/v1/users?page=1&pageSize=50"
-    if ($resp.succeeded -and $resp.data -and $resp.data.items) {
-        return $resp.data.items | Where-Object { $_.email -eq $Email }
+    if ($resp.succeeded -and $resp.data) {
+        # Handle both paginated { items: [] } and flat array responses
+        $list = if ($resp.data.items) { $resp.data.items } else { $resp.data }
+        return @($list) | Where-Object { $_.email -eq $Email } | Select-Object -First 1
     }
     return $null
 }
@@ -113,12 +115,20 @@ if ($customer) {
         }
     }
     $customerRes = Invoke-ApiPost "/api/v1/users" $customerPayload
-    if (-not $customerRes.succeeded) {
+    if ($customerRes.succeeded) {
+        $customer = $customerRes.data
+        Write-Host "Created Customer  : $($customer.firstName) $($customer.lastName) | ID: $($customer.id)" -ForegroundColor Green
+    } elseif ($customerRes.error -like "*already exists*") {
+        $customer = Get-UserByEmail "alice@example.com"
+        if ($customer) {
+            Write-Host "Customer already exists (re-found): $($customer.firstName) $($customer.lastName)" -ForegroundColor Yellow
+        } else {
+            Write-Host "Failed to create or locate customer." -ForegroundColor Red; exit 1
+        }
+    } else {
         Write-Host "Failed to create customer: $($customerRes.error)" -ForegroundColor Red
         exit 1
     }
-    $customer = $customerRes.data
-    Write-Host "Created Customer  : $($customer.firstName) $($customer.lastName) | ID: $($customer.id)" -ForegroundColor Green
 }
 $customerProfileId = $customer.customerProfile.id
 $addressId = Get-AddressFromDb $customerProfileId
@@ -160,12 +170,20 @@ if ($owner) {
         status       = 1   # Active
     }
     $ownerRes = Invoke-ApiPost "/api/v1/users" $ownerPayload
-    if (-not $ownerRes.succeeded) {
+    if ($ownerRes.succeeded) {
+        $owner = $ownerRes.data
+        Write-Host "Created Provider  : $($owner.firstName) $($owner.lastName) | ID: $($owner.id)" -ForegroundColor Green
+    } elseif ($ownerRes.error -like "*already exists*") {
+        $owner = Get-UserByEmail "bob@example.com"
+        if ($owner) {
+            Write-Host "Provider already exists (re-found): $($owner.firstName) $($owner.lastName)" -ForegroundColor Yellow
+        } else {
+            Write-Host "Failed to create or locate provider owner." -ForegroundColor Red; exit 1
+        }
+    } else {
         Write-Host "Failed to create business owner: $($ownerRes.error)" -ForegroundColor Red
         exit 1
     }
-    $owner = $ownerRes.data
-    Write-Host "Created Provider  : $($owner.firstName) $($owner.lastName) | ID: $($owner.id)" -ForegroundColor Green
 }
 
 # ------------------------------------------------------------------
@@ -236,12 +254,43 @@ function Register-Cleaner($FirstName, $LastName, $Email, $Phone, $ProviderId, $E
     }
 }
 
+# ------------------------------------------------------------------
+# 4.5. Register Supervisor (idempotent)
+# ------------------------------------------------------------------
+function Register-Supervisor($FirstName, $LastName, $Email, $Phone, $ProviderId, $EmploymentType, $Skills, $ServiceZones) {
+    $existing = Get-UserByEmail $Email
+    if ($existing) {
+        Write-Host "Supervisor already exists: $FirstName $LastName | $Email" -ForegroundColor Yellow
+        return $existing
+    }
+    $payload = @{
+        firstName      = $FirstName
+        lastName       = $LastName
+        email          = $Email
+        phoneNumber    = $Phone
+        passwordHash   = "Password123"
+        providerId     = $ProviderId
+        employmentType = $EmploymentType
+        skills         = $Skills
+        serviceZones   = $ServiceZones
+    }
+    $res = Invoke-ApiPost "/api/v1/supervisors" $payload
+    if ($res.succeeded) {
+        Write-Host "Registered Supervisor: $FirstName $LastName | $Email | ID: $($res.data.id)" -ForegroundColor Green
+        return $res.data
+    } else {
+        Write-Host "Failed to register supervisor $Email`: $($res.error)" -ForegroundColor Red
+        return $null
+    }
+}
+
 # Get Bob's provider ID from business profile
 $bpCheck = Invoke-ApiGet "/api/v1/business-profiles/me?contactUserId=$($owner.id)"
 $providerId = if ($bpCheck.succeeded -and $bpCheck.data) { $bpCheck.data.id } else { $owner.id }
 
-Register-Cleaner "Thabo" "Mokoena" "cleaner1@spotless.co.za" "0731112222" $providerId 1 @("Standard Cleaning", "Window Cleaning") @("Claremont", "Rondebosch")
-Register-Cleaner "Lerato" "Dlamini" "cleaner2@spotless.co.za" "0732223333" $providerId 2 @("Deep Cleaning", "Carpet Cleaning") @("Newlands", "Observatory")
+Register-Cleaner "Thabo" "Mokoena" "cleaner1@spotless.co.za" "0731112222" $providerId 1 "Standard Cleaning, Window Cleaning" "Claremont, Rondebosch"
+Register-Cleaner "Lerato" "Dlamini" "cleaner2@spotless.co.za" "0732223333" $providerId 2 "Deep Cleaning, Carpet Cleaning" "Newlands, Observatory"
+Register-Supervisor "Sipho" "Ndlovu" "supervisor1@spotless.co.za" "0733334444" $providerId 1 "Team Leadership, Quality Control, Deep Cleaning" "Claremont, Rondebosch, Newlands, Observatory"
 
 # ------------------------------------------------------------------
 # 5. Fetch a Service for bookings
@@ -333,6 +382,9 @@ Write-Host "   Areas    : Claremont, Rondebosch, Newlands, Observatory, Woodstoc
 Write-Host "`n🧹 CLEANERS (registered under Spotless Solutions)" -ForegroundColor Cyan
 Write-Host "   Cleaner 1: Thabo Mokoena  |  cleaner1@spotless.co.za  |  Password123" -ForegroundColor White
 Write-Host "   Cleaner 2: Lerato Dlamini  |  cleaner2@spotless.co.za  |  Password123" -ForegroundColor White
+
+Write-Host "`n👷 SUPERVISOR (registered under Spotless Solutions)" -ForegroundColor Cyan
+Write-Host "   Supervisor: Sipho Ndlovu  |  supervisor1@spotless.co.za  |  Password123" -ForegroundColor White
 
 if ($eftRes.succeeded) {
     Write-Host "`n💳 EFT PAYMENT BOOKING" -ForegroundColor Cyan

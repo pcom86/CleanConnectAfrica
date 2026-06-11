@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -6,6 +6,12 @@ import { ThemeProvider } from "./components/ThemeProvider";
 export const metadata: Metadata = {
   title: "CleanConnect Africa",
   description: "Professional cleaning, laundry & car wash services across Africa",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

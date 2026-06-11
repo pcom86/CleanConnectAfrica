@@ -14,8 +14,9 @@ import {
   getMyProviderBookings,
   addCustomerAddress,
   getMyBusinessProfile,
+  getProviderTeam,
 } from "@/lib/api";
-import type { User, BusinessProfile, Service, Booking, ProviderBooking, Address } from "@/lib/types";
+import type { User, BusinessProfile, Service, Booking, ProviderBooking, Address, TeamMember } from "@/lib/types";
 import ThemeToggle from "../components/ThemeToggle";
 import InfoRow from "./components/InfoRow";
 import StatCard from "./components/StatCard";
@@ -38,6 +39,9 @@ export default function DashboardPage() {
     const raw = localStorage.getItem("cc_bookings_cache");
     try { return raw ? JSON.parse(raw) : []; } catch { return []; }
   });
+
+  // Team
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
 
   // Provider bookings
   const [providerBookings, setProviderBookings] = useState<ProviderBooking[]>([]);
@@ -90,6 +94,11 @@ export default function DashboardPage() {
       setUser(freshUser);
       if (userRes.succeeded && userRes.data) saveSession(userRes.data);
 
+      if (freshUser.role === "Supervisor") {
+        router.push("/dashboard/supervisor");
+        return;
+      }
+
       if (freshUser.role === "ProviderOwner") {
         // Load provider business profile from API
         try {
@@ -97,6 +106,11 @@ export default function DashboardPage() {
           if (bpRes.succeeded && bpRes.data) {
             setBusinessProfile(bpRes.data);
             localStorage.setItem("cc_business_profile", JSON.stringify(bpRes.data));
+            // Load team for this provider
+            try {
+              const teamRes = await getProviderTeam(bpRes.data.id);
+              if (teamRes.succeeded && teamRes.data) setTeamMembers(teamRes.data);
+            } catch { /* silent */ }
           }
         } catch { /* silent */ }
         // Load provider bookings
@@ -257,45 +271,45 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">CC</span></div>
-          <span className="font-bold text-xl text-gray-900 dark:text-gray-100">CleanConnect Africa</span>
+          <span className="font-bold text-lg sm:text-xl text-gray-900 dark:text-gray-100">CleanConnect Africa</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">{user.firstName} {user.lastName}</span>
           <ThemeToggle />
-          <button onClick={handleLogout} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Log out</button>
+          <button onClick={handleLogout} className="px-3 sm:px-4 py-2 text-sm text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Log out</button>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         {paymentSuccess && (
-          <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-green-600 dark:text-green-400 text-xl">✓</span>
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="text-green-600 dark:text-green-400 text-lg sm:text-xl">✓</span>
               <div>
-                <p className="text-sm font-semibold text-green-800 dark:text-green-400">Payment Successful</p>
-                <p className="text-xs text-green-600 dark:text-green-500">Your booking has been confirmed. Thank you!</p>
+                <p className="text-xs sm:text-sm font-semibold text-green-800 dark:text-green-400">Payment Successful</p>
+                <p className="text-xs text-green-600 dark:text-green-500 hidden sm:block">Your booking has been confirmed. Thank you!</p>
               </div>
             </div>
             <button onClick={() => setPaymentSuccess(false)} className="text-green-700 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 text-lg leading-none">&times;</button>
           </div>
         )}
         {onsiteSuccess && (
-          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-blue-600 dark:text-blue-400 text-xl">✓</span>
+          <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="text-blue-600 dark:text-blue-400 text-lg sm:text-xl">✓</span>
               <div>
-                <p className="text-sm font-semibold text-blue-800 dark:text-blue-400">Booking Created</p>
-                <p className="text-xs text-blue-600 dark:text-blue-500">Payment will be collected on site by the cleaner. Your booking is confirmed!</p>
+                <p className="text-xs sm:text-sm font-semibold text-blue-800 dark:text-blue-400">Booking Created</p>
+                <p className="text-xs text-blue-600 dark:text-blue-500 hidden sm:block">Payment will be collected on site by the cleaner. Your booking is confirmed!</p>
               </div>
             </div>
             <button onClick={() => setOnsiteSuccess(false)} className="text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 text-lg leading-none">&times;</button>
           </div>
         )}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Welcome, {user.firstName}!</h1>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Welcome, {user.firstName}!</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Here&apos;s your account overview.</p>
         </div>
 
@@ -308,20 +322,20 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-              <div className="bg-brand-green-light dark:bg-green-900/20 px-6 py-5 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-brand-green rounded-full flex items-center justify-center text-white font-bold text-xl flex-shrink-0">{user.firstName[0]}{user.lastName[0]}</div>
+              <div className="bg-brand-green-light dark:bg-green-900/20 px-4 sm:px-6 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-brand-green rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-xl flex-shrink-0">{user.firstName[0]}{user.lastName[0]}</div>
                   <div>
-                    <h2 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">{user.firstName} {user.lastName}</h2>
+                    <h2 className="font-semibold text-gray-900 dark:text-gray-100 text-base sm:text-lg">{user.firstName} {user.lastName}</h2>
                     <span className="inline-block mt-1 px-2 py-0.5 bg-brand-green text-white text-xs font-medium rounded-full">{roleLabel[user.role] ?? user.role}</span>
                   </div>
                 </div>
                 <button onClick={openEditProfile} className="px-4 py-2 bg-white dark:bg-gray-800 text-brand-green text-sm font-medium rounded-lg border border-brand-green hover:bg-brand-green-light transition-colors">Edit Profile</button>
               </div>
-              <div className="px-6 py-5 grid sm:grid-cols-2 gap-4">
+              <div className="px-4 sm:px-6 py-4 sm:py-5 grid sm:grid-cols-2 gap-3 sm:gap-4">
                 <InfoRow label="Email" value={user.email} />
                 <InfoRow label="Phone" value={user.phoneNumber} />
                 <InfoRow label="Status" value={user.status} />
@@ -332,24 +346,24 @@ export default function DashboardPage() {
             </div>
 
             {isCustomer && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                <div className="flex items-center justify-between mb-4">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-gray-100">📍 My Addresses</h3>
                   <button onClick={() => { setAddrError(null); setShowAddAddress(true); }} className="px-4 py-2 bg-brand-green text-white text-sm font-medium rounded-lg hover:bg-brand-green-dark transition-colors">+ Add Address</button>
                 </div>
                 {customerAddresses.length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700"><p className="text-gray-500 dark:text-gray-400 text-sm">No saved addresses yet.</p><p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Add an address to start booking services.</p></div>
+                  <div className="text-center py-6 sm:py-8 bg-gray-50 dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700"><p className="text-gray-500 dark:text-gray-400 text-sm">No saved addresses yet.</p><p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Add an address to start booking services.</p></div>
                 ) : (
-                  <div className="grid sm:grid-cols-2 gap-4">{customerAddresses.map((addr) => <AddressCard key={addr.id} address={addr} />)}</div>
+                  <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">{customerAddresses.map((addr) => <AddressCard key={addr.id} address={addr} />)}</div>
                 )}
               </div>
             )}
 
             {isCustomer && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 border-l-4 border-l-brand-green">
-                <div className="flex items-center justify-between mb-4">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 sm:p-6 border-l-4 border-l-brand-green">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg">📋 My Bookings</h3>
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base sm:text-lg">📋 My Bookings</h3>
                     <span className="px-2 py-0.5 bg-brand-green-light dark:bg-green-900/30 text-brand-green dark:text-green-400 text-xs font-semibold rounded-full">{bookings.length}</span>
                   </div>
                   <button onClick={() => { setBookingError(null); setBookingAddressMode(customerAddresses.length > 0 ? "saved" : "new"); setShowNewBooking(true); }} className="px-4 py-2 bg-brand-green text-white text-sm font-medium rounded-lg hover:bg-brand-green-dark transition-colors">+ New Booking</button>
@@ -428,10 +442,45 @@ export default function DashboardPage() {
             )}
 
             {user.role === "ProviderOwner" && businessProfile && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 border-l-4 border-l-brand-green">
-                <div className="flex items-center justify-between mb-4">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg">�️ My Jobs</h3>
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base sm:text-lg">👷 My Team</h3>
+                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-semibold rounded-full">{teamMembers.length}</span>
+                  </div>
+                  <Link href="/dashboard/team" className="px-4 py-1.5 bg-brand-green text-white text-sm font-medium rounded-lg hover:bg-brand-green-dark transition-colors">Manage Team →</Link>
+                </div>
+                {teamMembers.length === 0 ? (
+                  <div className="text-center py-6 bg-gray-50 dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">No team members yet.</p>
+                    <Link href="/dashboard/team" className="inline-block mt-2 text-sm text-brand-green font-medium hover:underline">Add your first staff member →</Link>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {teamMembers.map(m => (
+                      <div key={m.profileId} className={`flex items-center gap-3 p-3 rounded-xl border text-sm ${
+                        m.memberRole === "Supervisor"
+                          ? "border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/10"
+                          : "border-green-100 dark:border-green-900/40 bg-green-50 dark:bg-green-900/10"
+                      }`}>
+                        <span className="text-lg">{{ Cleaner: "🧹", Washer: "🫧", Driver: "🚗", Supervisor: "👷" }[m.memberRole] ?? "👤"}</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{m.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{m.memberRole} · {m.employmentType} · {m.serviceZones}</p>
+                        </div>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">★ {m.rating.toFixed(1)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {user.role === "ProviderOwner" && businessProfile && (
+              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 sm:p-6 border-l-4 border-l-brand-green">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base sm:text-lg">🗂️ My Jobs</h3>
                     <span className="px-2 py-0.5 bg-brand-green-light dark:bg-green-900/30 text-brand-green dark:text-green-400 text-xs font-semibold rounded-full">
                       {myProviderBookingsLoading ? "…" : myProviderBookings.length}
                     </span>
@@ -451,23 +500,28 @@ export default function DashboardPage() {
                 ) : (
                   <div className="space-y-3">
                     {myProviderBookings.map((b) => (
-                      <Link key={b.id} href={`/dashboard/provider-booking/${b.id}`} className="block p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-brand-green hover:shadow-sm transition-all">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{b.serviceName}</p>
-                              <CategoryBadge category={b.serviceCategory} />
-                              <StatusBadge status={b.status} />
+                      <div key={b.id} className="flex items-stretch gap-2">
+                        <Link href={`/dashboard/provider-booking/${b.id}`} className="flex-1 block p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-brand-green hover:shadow-sm transition-all">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{b.serviceName}</p>
+                                <CategoryBadge category={b.serviceCategory} />
+                                <StatusBadge status={b.status} />
+                              </div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{b.addressSummary}</p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500">{new Date(b.scheduledStart).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}</p>
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{b.addressSummary}</p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500">{new Date(b.scheduledStart).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}</p>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-brand-green">R{b.price.toFixed(2)}</p>
+                              <p className="text-xs text-brand-green font-medium">Manage →</p>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-brand-green">R{b.price.toFixed(2)}</p>
-                            <p className="text-xs text-brand-green font-medium">Manage →</p>
-                          </div>
-                        </div>
-                      </Link>
+                        </Link>
+                        <Link href={`/dashboard/booking-report/${b.id}`} className="flex items-center justify-center px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-blue-400 hover:bg-blue-50 transition-all text-blue-500 text-xs font-medium whitespace-nowrap">
+                          📋<span className="ml-1 hidden sm:inline">Report</span>
+                        </Link>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -475,10 +529,10 @@ export default function DashboardPage() {
             )}
 
             {user.role === "ProviderOwner" && businessProfile && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 border-l-4 border-l-brand-green">
-                <div className="flex items-center justify-between mb-4">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 sm:p-6 border-l-4 border-l-brand-green">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100 text-lg">�� Available Bookings</h3>
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base sm:text-lg">🗂️ Available Bookings</h3>
                     <span className="px-2 py-0.5 bg-brand-green-light dark:bg-green-900/30 text-brand-green dark:text-green-400 text-xs font-semibold rounded-full">
                       {providerBookingsLoading ? "…" : getFilteredProviderBookings().length}
                     </span>
@@ -541,16 +595,19 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 sm:p-6">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button onClick={() => { setBookingError(null); setBookingAddressMode(customerAddresses.length > 0 ? "saved" : "new"); setShowNewBooking(true); }} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-brand-green hover:bg-brand-green-light transition-colors text-left"><span className="text-2xl">🧹</span><div><p className="text-sm font-medium text-gray-700">Book a Service</p><p className="text-xs text-gray-400">Cleaning, laundry or car wash</p></div></button>
-                <button onClick={() => { setAddrError(null); setShowAddAddress(true); }} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-brand-green hover:bg-brand-green-light transition-colors text-left"><span className="text-2xl">📍</span><div><p className="text-sm font-medium text-gray-700">Add Address</p><p className="text-xs text-gray-400">Save a new service location</p></div></button>
-                <button onClick={openEditProfile} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-brand-green hover:bg-brand-green-light transition-colors text-left"><span className="text-2xl">✏️</span><div><p className="text-sm font-medium text-gray-700">Edit Profile</p><p className="text-xs text-gray-400">Update your details</p></div></button>
+                <button onClick={() => { setBookingError(null); setBookingAddressMode(customerAddresses.length > 0 ? "saved" : "new"); setShowNewBooking(true); }} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-brand-green hover:bg-brand-green-light transition-colors text-left"><span className="text-xl sm:text-2xl">🧹</span><div><p className="text-sm font-medium text-gray-700">Book a Service</p><p className="text-xs text-gray-400">Cleaning, laundry or car wash</p></div></button>
+                <button onClick={() => { setAddrError(null); setShowAddAddress(true); }} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-brand-green hover:bg-brand-green-light transition-colors text-left"><span className="text-xl sm:text-2xl">📍</span><div><p className="text-sm font-medium text-gray-700">Add Address</p><p className="text-xs text-gray-400">Save a new service location</p></div></button>
+                <button onClick={openEditProfile} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-brand-green hover:bg-brand-green-light transition-colors text-left"><span className="text-xl sm:text-2xl">✏️</span><div><p className="text-sm font-medium text-gray-700">Edit Profile</p><p className="text-xs text-gray-400">Update your details</p></div></button>
+                {user.role === "ProviderOwner" && (
+                  <Link href="/dashboard/team" className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-brand-green hover:bg-brand-green-light transition-colors text-left"><span className="text-xl sm:text-2xl">👷</span><div><p className="text-sm font-medium text-gray-700">Manage Team</p><p className="text-xs text-gray-400">Add cleaners &amp; supervisors</p></div></Link>
+                )}
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 sm:p-6">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Available Services</h3>
               {services.length === 0 ? <p className="text-sm text-gray-400">No services available.</p> : (
                 <div className="space-y-3">
