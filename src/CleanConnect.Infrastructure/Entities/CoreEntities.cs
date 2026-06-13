@@ -11,11 +11,13 @@ public sealed class User
     public UserRole Role { get; set; }
     public AccountStatus Status { get; set; } = AccountStatus.Active;
     public string? IdNumber { get; set; }
+    public bool MustChangePassword { get; set; } = false;
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
     public CustomerProfile? CustomerProfile { get; set; }
     public CleanerProfile? CleanerProfile { get; set; }
+    public SupervisorProfile? SupervisorProfile { get; set; }
     public Provider? OwnedProvider { get; set; }
 }
 
@@ -104,6 +106,9 @@ public sealed class Booking
     public CarWashJobDetail? CarWashJobDetail { get; set; }
     public CleaningJobDetail? CleaningJobDetail { get; set; }
     public ICollection<ServiceMilestone> ServiceMilestones { get; set; } = new List<ServiceMilestone>();
+    public ICollection<JobCheckIn> JobCheckIns { get; set; } = new List<JobCheckIn>();
+    public ICollection<JobCheckOut> JobCheckOuts { get; set; } = new List<JobCheckOut>();
+    public PostJobReport? PostJobReport { get; set; }
 }
 
 public sealed class Assignment
@@ -114,6 +119,7 @@ public sealed class Assignment
     public Guid? CleanerProfileId { get; set; }
     public Guid? ProviderId { get; set; }
     public Guid? SupervisorId { get; set; }
+    public string TeamCleanerProfileIdsJson { get; set; } = "[]";
     public AssignmentStatus Status { get; set; } = AssignmentStatus.Pending;
     public DateTimeOffset AssignedAt { get; set; }
     public DateTimeOffset? AcceptedAt { get; set; }
@@ -130,6 +136,7 @@ public sealed class CleanerProfile
     public Guid UserId { get; set; }
     public Guid? ProviderId { get; set; }
     public EmploymentType EmploymentType { get; set; }
+    public StaffRole StaffRole { get; set; } = StaffRole.Cleaner;
     public string Skills { get; set; } = string.Empty;
     public string ServiceZones { get; set; } = string.Empty;
     public decimal Rating { get; set; }
@@ -174,8 +181,79 @@ public sealed class Provider
     public User ContactUser { get; set; } = null!;
     public ProviderMembershipPlan? MembershipPlan { get; set; }
     public ICollection<CleanerProfile> Cleaners { get; set; } = new List<CleanerProfile>();
+    public ICollection<SupervisorProfile> Supervisors { get; set; } = new List<SupervisorProfile>();
     public ICollection<Assignment> Assignments { get; set; } = new List<Assignment>();
     public ICollection<Payout> Payouts { get; set; } = new List<Payout>();
     public ICollection<ProviderJoiningFeePayment> JoiningFeePayments { get; set; } = new List<ProviderJoiningFeePayment>();
     public ICollection<ProviderCommission> Commissions { get; set; } = new List<ProviderCommission>();
+}
+
+public sealed class SupervisorProfile
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public Guid? ProviderId { get; set; }
+    public EmploymentType EmploymentType { get; set; }
+    public string Skills { get; set; } = string.Empty;
+    public string ServiceZones { get; set; } = string.Empty;
+    public decimal Rating { get; set; }
+    public AccountStatus Status { get; set; } = AccountStatus.Active;
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public User User { get; set; } = null!;
+    public Provider? Provider { get; set; }
+    public ICollection<Assignment> Assignments { get; set; } = new List<Assignment>();
+}
+
+public sealed class JobCheckIn
+{
+    public Guid Id { get; set; }
+    public Guid BookingId { get; set; }
+    public Guid UserId { get; set; }
+    public DateTimeOffset CheckInTime { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public string? PhotoUrl { get; set; }
+    public string? Notes { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public Booking Booking { get; set; } = null!;
+    public User User { get; set; } = null!;
+}
+
+public sealed class JobCheckOut
+{
+    public Guid Id { get; set; }
+    public Guid BookingId { get; set; }
+    public Guid UserId { get; set; }
+    public DateTimeOffset CheckOutTime { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
+    public string? PhotoUrl { get; set; }
+    public string? Notes { get; set; }
+    public string? WorkSummary { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public Booking Booking { get; set; } = null!;
+    public User User { get; set; } = null!;
+}
+
+public sealed class PostJobReport
+{
+    public Guid Id { get; set; }
+    public Guid BookingId { get; set; }
+    public Guid CompiledByUserId { get; set; }
+    public DateTimeOffset CompiledAt { get; set; }
+    public string Summary { get; set; } = string.Empty;
+    public string? IssuesFound { get; set; }
+    public string? Recommendations { get; set; }
+    public int? OverallRating { get; set; }
+    public string PhotosJson { get; set; } = "[]";
+    public string ChecklistResultsJson { get; set; } = "[]";
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public Booking Booking { get; set; } = null!;
+    public User CompiledByUser { get; set; } = null!;
 }

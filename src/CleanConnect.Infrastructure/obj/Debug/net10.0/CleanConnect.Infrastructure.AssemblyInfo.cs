@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CleanConnect.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f5ee7ce50d7e15af1884a65c7f1f3a1e4d3cb3ff")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0ba9880d36085ea2201f35bd2094a97509f70a26")]
 [assembly: System.Reflection.AssemblyProductAttribute("CleanConnect.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CleanConnect.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

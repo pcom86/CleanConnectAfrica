@@ -1,6 +1,7 @@
 using CleanConnect.Application.Common;
 using CleanConnect.Application.Payments;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using GetPaymentByIdQuery = CleanConnect.Application.Payments.GetPaymentByIdQuery;
 
@@ -8,6 +9,7 @@ namespace CleanConnect.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/payments")]
+[EnableCors("Frontend")]
 public sealed class PaymentsController(ISender sender) : ControllerBase
 {
     [HttpPost("bookings/{bookingId:guid}")]

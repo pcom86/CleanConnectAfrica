@@ -607,3 +607,109 @@ public sealed class AssignCleanerToBookingCommandHandler(CleanConnectDbContext d
         return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId, booking.Address?.Label ?? "", $"{booking.Address?.StreetAddress}, {booking.Address?.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
     }
 }
+
+// --- Assign Team to Booking ---
+public sealed record AssignTeamCommand(
+    Guid BookingId,
+    List<Guid> CleanerProfileIds,
+    Guid? SupervisorProfileId
+) : IRequest<ApiResult<BookingDto>>;
+
+public sealed class AssignTeamCommandValidator : AbstractValidator<AssignTeamCommand>
+{
+    public AssignTeamCommandValidator()
+    {
+        RuleFor(x => x.BookingId).NotEmpty();
+        RuleFor(x => x.CleanerProfileIds).NotEmpty().WithMessage("At least one cleaner must be selected.");
+    }
+}
+
+public sealed class AssignTeamCommandHandler(CleanConnectDbContext dbContext)
+    : IRequestHandler<AssignTeamCommand, ApiResult<BookingDto>>
+{
+    public async Task<ApiResult<BookingDto>> Handle(AssignTeamCommand request, CancellationToken cancellationToken)
+    {
+        var booking = await dbContext.Bookings
+            .Include(x => x.Service)
+            .Include(x => x.Address)
+            .Include(x => x.CleaningJobDetail)
+            .SingleOrDefaultAsync(x => x.Id == request.BookingId, cancellationToken);
+
+        if (booking is null)
+            return ApiResult<BookingDto>.Failure("Booking was not found.");
+
+        if (booking.Status != BookingStatus.Assigned && booking.Status != BookingStatus.Confirmed)
+            return ApiResult<BookingDto>.Failure("Booking must be accepted before assigning a team.");
+
+        var cleaners = await dbContext.CleanerProfiles
+            .Include(x => x.User)
+            .Where(x => request.CleanerProfileIds.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+
+        if (cleaners.Count == 0)
+            return ApiResult<BookingDto>.Failure("No valid cleaners found.");
+
+        User? supervisor = null;
+        if (request.SupervisorProfileId.HasValue)
+        {
+            var supervisorProfile = await dbContext.SupervisorProfiles
+                .Include(x => x.User)
+                .SingleOrDefaultAsync(x => x.Id == request.SupervisorProfileId.Value, cancellationToken);
+            supervisor = supervisorProfile?.User;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+
+        var assignment = await dbContext.Assignments
+            .SingleOrDefaultAsync(x => x.BookingId == request.BookingId, cancellationToken);
+
+        if (assignment is null)
+        {
+            assignment = new Assignment
+            {
+                Id = Guid.NewGuid(),
+                BookingId = booking.Id,
+                AssignedType = AssignmentType.InternalCleaner,
+                Status = AssignmentStatus.Accepted,
+                AssignedAt = now,
+                AcceptedAt = now
+            };
+            dbContext.Assignments.Add(assignment);
+        }
+
+        assignment.CleanerProfileId = cleaners[0].Id;
+        assignment.AssignedType = AssignmentType.InternalCleaner;
+        assignment.Status = AssignmentStatus.Accepted;
+        assignment.TeamCleanerProfileIdsJson = System.Text.Json.JsonSerializer.Serialize(
+            cleaners.Select(c => c.Id).ToList());
+        assignment.SupervisorId = supervisor?.Id;
+
+        booking.Status = BookingStatus.CleanerEnRoute;
+        booking.UpdatedAt = now;
+
+        if (booking.CleaningJobDetail is not null)
+        {
+            booking.CleaningJobDetail.TeamDispatchedAt = now;
+            booking.CleaningJobDetail.UpdatedAt = now;
+        }
+
+        var cleanerNames = string.Join(", ", cleaners.Select(c => $"{c.User.FirstName} {c.User.LastName}"));
+        var milestoneNote = supervisor is not null
+            ? $"Team: {cleanerNames}. Supervisor: {supervisor.FirstName} {supervisor.LastName}"
+            : $"Team: {cleanerNames}";
+
+        dbContext.ServiceMilestones.Add(new ServiceMilestone
+        {
+            Id = Guid.NewGuid(),
+            BookingId = booking.Id,
+            MilestoneType = "TeamAssigned",
+            Status = BookingStatus.CleanerEnRoute.ToString(),
+            Notes = milestoneNote,
+            OccurredAt = now
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId, booking.Address?.Label ?? "", $"{booking.Address?.StreetAddress}, {booking.Address?.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
+    }
+}

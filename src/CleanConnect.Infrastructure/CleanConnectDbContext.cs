@@ -29,6 +29,10 @@ public sealed class CleanConnectDbContext(DbContextOptions<CleanConnectDbContext
     public DbSet<CleaningRequest> CleaningRequests => Set<CleaningRequest>();
     public DbSet<CleaningRequestResponse> CleaningRequestResponses => Set<CleaningRequestResponse>();
     public DbSet<CleaningJobDetail> CleaningJobDetails => Set<CleaningJobDetail>();
+    public DbSet<SupervisorProfile> SupervisorProfiles => Set<SupervisorProfile>();
+    public DbSet<JobCheckIn> JobCheckIns => Set<JobCheckIn>();
+    public DbSet<JobCheckOut> JobCheckOuts => Set<JobCheckOut>();
+    public DbSet<PostJobReport> PostJobReports => Set<PostJobReport>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,6 +61,7 @@ public sealed class CleanConnectDbContext(DbContextOptions<CleanConnectDbContext
             entity.Property(x => x.PasswordHash).HasMaxLength(500).IsRequired();
             entity.Property(x => x.Role).HasConversion<string>().HasMaxLength(50).IsRequired();
             entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(50).IsRequired();
+            entity.Property(x => x.MustChangePassword).HasDefaultValue(false);
             entity.HasIndex(x => x.Email).IsUnique();
             entity.HasIndex(x => x.PhoneNumber).IsUnique();
         });
@@ -157,6 +162,7 @@ public sealed class CleanConnectDbContext(DbContextOptions<CleanConnectDbContext
             entity.HasKey(x => x.Id);
             entity.Property(x => x.AssignedType).HasConversion<string>().HasMaxLength(50).IsRequired();
             entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(50).IsRequired();
+            entity.Property(x => x.TeamCleanerProfileIdsJson).HasColumnType("jsonb").HasDefaultValue("[]").IsRequired();
             entity.HasOne(x => x.Booking).WithOne(x => x.Assignment).HasForeignKey<Assignment>(x => x.BookingId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(x => x.CleanerProfile).WithMany(x => x.Assignments).HasForeignKey(x => x.CleanerProfileId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Provider).WithMany(x => x.Assignments).HasForeignKey(x => x.ProviderId).OnDelete(DeleteBehavior.Restrict);
@@ -174,6 +180,7 @@ public sealed class CleanConnectDbContext(DbContextOptions<CleanConnectDbContext
             entity.ToTable("cleaner_profiles");
             entity.HasKey(x => x.Id);
             entity.Property(x => x.EmploymentType).HasConversion<string>().HasMaxLength(50).IsRequired();
+            entity.Property(x => x.StaffRole).HasConversion<string>().HasMaxLength(50).HasDefaultValue(StaffRole.Cleaner).IsRequired();
             entity.Property(x => x.Skills).HasMaxLength(1000);
             entity.Property(x => x.ServiceZones).HasMaxLength(1000);
             entity.Property(x => x.Rating).HasPrecision(3, 2);
@@ -182,6 +189,62 @@ public sealed class CleanConnectDbContext(DbContextOptions<CleanConnectDbContext
             entity.HasOne(x => x.Provider).WithMany(x => x.Cleaners).HasForeignKey(x => x.ProviderId).OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(x => x.UserId).IsUnique();
             entity.HasIndex(x => x.Status);
+        });
+
+        modelBuilder.Entity<SupervisorProfile>(entity =>
+        {
+            entity.ToTable("supervisor_profiles");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.EmploymentType).HasConversion<string>().HasMaxLength(50).IsRequired();
+            entity.Property(x => x.Skills).HasMaxLength(1000);
+            entity.Property(x => x.ServiceZones).HasMaxLength(1000);
+            entity.Property(x => x.Rating).HasPrecision(3, 2);
+            entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(50).IsRequired();
+            entity.HasOne(x => x.User).WithOne(x => x.SupervisorProfile).HasForeignKey<SupervisorProfile>(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Provider).WithMany(x => x.Supervisors).HasForeignKey(x => x.ProviderId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(x => x.UserId).IsUnique();
+            entity.HasIndex(x => x.Status);
+        });
+
+        modelBuilder.Entity<JobCheckIn>(entity =>
+        {
+            entity.ToTable("job_check_ins");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Latitude).HasPrecision(10, 7);
+            entity.Property(x => x.Longitude).HasPrecision(10, 7);
+            entity.Property(x => x.PhotoUrl).HasMaxLength(100000);
+            entity.Property(x => x.Notes).HasMaxLength(2000);
+            entity.HasOne(x => x.Booking).WithMany(x => x.JobCheckIns).HasForeignKey(x => x.BookingId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(x => x.BookingId);
+        });
+
+        modelBuilder.Entity<JobCheckOut>(entity =>
+        {
+            entity.ToTable("job_check_outs");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Latitude).HasPrecision(10, 7);
+            entity.Property(x => x.Longitude).HasPrecision(10, 7);
+            entity.Property(x => x.PhotoUrl).HasMaxLength(100000);
+            entity.Property(x => x.Notes).HasMaxLength(2000);
+            entity.Property(x => x.WorkSummary).HasMaxLength(2000);
+            entity.HasOne(x => x.Booking).WithMany(x => x.JobCheckOuts).HasForeignKey(x => x.BookingId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(x => x.BookingId);
+        });
+
+        modelBuilder.Entity<PostJobReport>(entity =>
+        {
+            entity.ToTable("post_job_reports");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Summary).HasMaxLength(2000).IsRequired();
+            entity.Property(x => x.IssuesFound).HasMaxLength(2000);
+            entity.Property(x => x.Recommendations).HasMaxLength(2000);
+            entity.Property(x => x.PhotosJson).HasColumnType("jsonb").IsRequired();
+            entity.Property(x => x.ChecklistResultsJson).HasColumnType("jsonb").IsRequired();
+            entity.HasOne(x => x.Booking).WithOne(x => x.PostJobReport).HasForeignKey<PostJobReport>(x => x.BookingId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.CompiledByUser).WithMany().HasForeignKey(x => x.CompiledByUserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(x => x.BookingId).IsUnique();
         });
 
         modelBuilder.Entity<JobCompletion>(entity =>

@@ -1,4 +1,4 @@
-import type { ApiResult, User, BusinessProfile, PagedResult, AdminStats, MembershipPlan, Service, Booking, ProviderBooking, Payment, BookingDetail, CleanerProfile, SupervisorProfile, JobCheckIn, JobCheckOut, PostJobReport, TeamMember } from "./types";
+import type { ApiResult, User, BusinessProfile, PagedResult, AdminStats, MembershipPlan, Service, Booking, ProviderBooking, Payment, BookingDetail, CleanerProfile, SupervisorProfile, JobCheckIn, JobCheckOut, PostJobReport, TeamMember, Review } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
@@ -274,6 +274,15 @@ export async function createCleaningBooking(data: {
 
 export async function getCustomerBookings(customerProfileId: string, page = 1, pageSize = 20): Promise<ApiResult<PagedResult<Booking>>> {
   return get<PagedResult<Booking>>(`/api/v1/customer-bookings/${customerProfileId}?page=${page}&pageSize=${pageSize}`);
+}
+
+export async function rateBooking(data: {
+  bookingId: string;
+  customerProfileId: string;
+  rating: number;
+  comment?: string | null;
+}): Promise<ApiResult<Review>> {
+  return post<Review>("/api/v1/customer-bookings/rate", data);
 }
 
 export async function getProviderBookings(page = 1, pageSize = 50): Promise<ApiResult<PagedResult<ProviderBooking>>> {

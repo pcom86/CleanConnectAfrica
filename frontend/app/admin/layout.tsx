@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import { LogOut } from "lucide-react";
 import { getSession, clearSession } from "@/lib/auth";
 import ThemeToggle from "../components/ThemeToggle";
 
@@ -90,9 +91,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <ThemeToggle />
           <button
             onClick={handleLogout}
-            className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors mt-2"
+            className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors mt-2 flex items-center gap-2"
           >
-            Log out
+            <LogOut className="w-4 h-4" />
+            <span>Log out</span>
           </button>
         </div>
       </aside>
@@ -128,8 +130,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {item.icon} {item.label}
               </Link>
             ))}
-            <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm text-red-600">
-              Log out
+            <button onClick={handleLogout} className="block w-full text-left px-3 py-2 text-sm text-red-600 flex items-center gap-2">
+              <LogOut className="w-4 h-4" />
+              <span>Log out</span>
             </button>
           </div>
         )}

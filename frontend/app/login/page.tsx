@@ -11,6 +11,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionExpired = searchParams.get("reason") === "session_expired";
+  const passwordChanged = searchParams.get("reason") === "password_changed";
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,6 +25,8 @@ function LoginForm() {
       if (result.succeeded && result.data) {
         saveSession(result.data);
         router.push(result.data.role === "Admin" ? "/admin/dashboard" : "/dashboard");
+      } else if (result.errorCode === "MustChangePassword") {
+        router.push(`/change-password?email=${encodeURIComponent(form.email)}&password=${encodeURIComponent(form.password)}`);
       } else {
         setError(result.error ?? "Login failed. Please try again.");
       }
@@ -52,6 +55,11 @@ function LoginForm() {
             <p className="text-gray-500 dark:text-gray-400 mt-1">Log in to your account</p>
           </div>
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+            {passwordChanged && (
+              <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-sm text-green-800 dark:text-green-400">
+                Password changed successfully. Please log in with your new password.
+              </div>
+            )}
             {sessionExpired && (
               <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-400">
                 Your session has expired. Please log in again — or{" "}

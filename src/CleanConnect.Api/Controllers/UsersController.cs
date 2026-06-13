@@ -1,12 +1,14 @@
 using CleanConnect.Application.Users;
 using CleanConnect.Infrastructure.Entities;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleanConnect.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/users")]
+[EnableCors("Frontend")]
 public sealed class UsersController(ISender sender) : ControllerBase
 {
     [HttpPost]
@@ -20,13 +22,14 @@ public sealed class UsersController(ISender sender) : ControllerBase
     public async Task<IActionResult> GetUser(Guid userId, CancellationToken cancellationToken)
     {
         var result = await sender.Send(new GetUserByIdQuery(userId), cancellationToken);
-        return result.Succeeded ? Ok(result) : BadRequest(result);
+        if (result.Succeeded) return Ok(result);
+        return result.Error?.Contains("not found") == true ? NotFound(result) : BadRequest(result);
     }
 
     [HttpPut("{userId:guid}")]
     public async Task<IActionResult> UpdateUser(Guid userId, [FromBody] UpdateUserRequest request, CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new UpdateUserCommand(userId, request.FirstName, request.LastName, request.Email, request.PhoneNumber, request.Role, request.Status, request.CustomerProfile, request.CleanerProfile), cancellationToken);
+        var result = await sender.Send(new UpdateUserCommand(userId, request.FirstName, request.LastName, request.Email, request.PhoneNumber, request.Role, request.Status, request.CustomerProfile, request.CleanerProfile, request.SupervisorProfile), cancellationToken);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 

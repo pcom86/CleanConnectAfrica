@@ -1,11 +1,13 @@
 using CleanConnect.Application.Bookings;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleanConnect.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/provider-bookings")]
+[EnableCors("Frontend")]
 public sealed class ProviderBookingsController(ISender sender) : ControllerBase
 {
     [HttpGet]

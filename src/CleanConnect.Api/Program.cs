@@ -22,7 +22,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
-        policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
@@ -198,6 +198,7 @@ app.MapDefaultEndpoints();
 
 app.UseRouting();
 app.UseCors("Frontend");
+app.MapControllers();
 app.UseSwagger();
 
 if (app.Environment.IsDevelopment())
@@ -217,5 +218,4 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
-app.MapControllers();
 app.Run();

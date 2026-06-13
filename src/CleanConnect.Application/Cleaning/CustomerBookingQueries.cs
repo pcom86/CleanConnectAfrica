@@ -23,6 +23,7 @@ public sealed class GetCustomerBookingsQueryHandler(CleanConnectDbContext dbCont
             .Take(request.PageSize)
             .Include(x => x.Service)
             .Include(x => x.Address)
+            .Include(x => x.Review)
             .Select(x => new CustomerBookingDto(
                 x.Id,
                 x.ServiceId,
@@ -38,7 +39,8 @@ public sealed class GetCustomerBookingsQueryHandler(CleanConnectDbContext dbCont
                 x.Price,
                 x.Currency,
                 x.PayOnsite,
-                x.CreatedAt))
+                x.CreatedAt,
+                x.Review == null ? null : new ReviewDto(x.Review.Id, x.Review.Rating, x.Review.Comment, x.Review.CreatedAt)))
             .ToListAsync(cancellationToken);
 
         return ApiResult<PagedResult<CustomerBookingDto>>.Success(new PagedResult<CustomerBookingDto>(items, request.Page, request.PageSize, total));

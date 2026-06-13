@@ -2,6 +2,7 @@ export interface ApiResult<T> {
   succeeded: boolean;
   data: T | null;
   error: string | null;
+  errorCode?: string | null;
 }
 
 export interface Address {
@@ -35,6 +36,61 @@ export interface CleanerProfile {
   status: string;
 }
 
+export interface SupervisorProfile {
+  id: string;
+  providerId: string | null;
+  employmentType: string;
+  skills: string;
+  serviceZones: string;
+  rating: number;
+  status: string;
+}
+
+export interface JobCheckIn {
+  id: string;
+  bookingId: string;
+  userId: string;
+  userName: string;
+  checkInTime: string;
+  latitude: number | null;
+  longitude: number | null;
+  photoUrl: string | null;
+  notes: string | null;
+}
+
+export interface JobCheckOut {
+  id: string;
+  bookingId: string;
+  userId: string;
+  userName: string;
+  checkOutTime: string;
+  latitude: number | null;
+  longitude: number | null;
+  photoUrl: string | null;
+  notes: string | null;
+  workSummary: string | null;
+}
+
+export interface ChecklistResult {
+  taskName: string;
+  completed: boolean;
+  notes: string | null;
+}
+
+export interface PostJobReport {
+  id: string;
+  bookingId: string;
+  compiledByUserId: string;
+  compiledByName: string;
+  compiledAt: string;
+  summary: string;
+  issuesFound: string | null;
+  recommendations: string | null;
+  overallRating: number | null;
+  photos: string[];
+  checklistResults: ChecklistResult[];
+}
+
 export interface User {
   id: string;
   firstName: string;
@@ -46,6 +102,7 @@ export interface User {
   idNumber: string | null;
   customerProfile: CustomerProfile | null;
   cleanerProfile: CleanerProfile | null;
+  supervisorProfile: SupervisorProfile | null;
 }
 
 export interface Service {
@@ -71,6 +128,13 @@ export interface Payment {
   createdAt: string;
 }
 
+export interface Review {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+}
+
 export interface Booking {
   id: string;
   serviceId: string;
@@ -87,6 +151,7 @@ export interface Booking {
   currency: string;
   payOnsite: boolean;
   createdAt: string;
+  review: Review | null;
 }
 
 export interface ProviderBooking {
@@ -124,6 +189,20 @@ export interface CleaningJobDetail {
   completedAt: string | null;
 }
 
+export interface TeamMember {
+  profileId: string;
+  userId: string;
+  name: string;
+  memberRole: string;
+  employmentType: string;
+  skills: string;
+  serviceZones: string;
+  rating: number;
+  email: string;
+  phoneNumber: string;
+  status: string;
+}
+
 export interface Assignment {
   id: string;
   cleanerProfileId: string | null;
@@ -134,6 +213,8 @@ export interface Assignment {
   status: string;
   assignedAt: string;
   acceptedAt: string | null;
+  teamMembers: TeamMember[] | null;
+  supervisorName: string | null;
 }
 
 export interface ServiceMilestone {
@@ -165,17 +246,7 @@ export interface BookingDetail {
   milestones: ServiceMilestone[];
 }
 
-export interface CleanerProfile {
-  id: string;
-  providerId: string | null;
-  employmentType: string;
-  skills: string;
-  serviceZones: string;
-  rating: number;
-  status: string;
-}
-
-export type UserRole = "Customer" | "BusinessCustomer" | "Cleaner" | "ProviderOwner" | "ProviderStaff" | "Admin";
+export type UserRole = "Customer" | "BusinessCustomer" | "Cleaner" | "Supervisor" | "ProviderOwner" | "ProviderStaff" | "Admin";
 export type CustomerType = "Residential" | "Hospitality" | "Commercial";
 export type ServiceCategory = "Cleaning" | "Laundry" | "CarWash" | "PestControl";
 export type AccountStatus = "Active" | "Inactive" | "Suspended" | "PendingActivation";

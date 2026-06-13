@@ -1,12 +1,14 @@
 using CleanConnect.Application.Cleaning;
 using CleanConnect.Infrastructure.Entities;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleanConnect.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/cleaning-requests")]
+[EnableCors("Frontend")]
 public sealed class CleaningRequestsController(ISender sender) : ControllerBase
 {
     [HttpPost]

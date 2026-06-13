@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { LogOut } from "lucide-react";
 import { getSession, clearSession, saveSession } from "@/lib/auth";
 import {
   getUser,
@@ -15,6 +16,8 @@ import {
   addCustomerAddress,
   getMyBusinessProfile,
   getProviderTeam,
+  getSupervisorBookings,
+  rateBooking,
 } from "@/lib/api";
 import type { User, BusinessProfile, Service, Booking, ProviderBooking, Address, TeamMember } from "@/lib/types";
 import ThemeToggle from "../components/ThemeToggle";
@@ -49,6 +52,10 @@ export default function DashboardPage() {
   const [providerBookingsLoading, setProviderBookingsLoading] = useState(false);
   const [myProviderBookings, setMyProviderBookings] = useState<ProviderBooking[]>([]);
   const [myProviderBookingsLoading, setMyProviderBookingsLoading] = useState(false);
+
+  // Supervisor bookings
+  const [supervisorBookings, setSupervisorBookings] = useState<Booking[]>([]);
+  const [supervisorBookingsLoading, setSupervisorBookingsLoading] = useState(false);
 
   // Modals
   const [showEditProfile, setShowEditProfile] = useState(false);
@@ -95,8 +102,11 @@ export default function DashboardPage() {
       if (userRes.succeeded && userRes.data) saveSession(userRes.data);
 
       if (freshUser.role === "Supervisor") {
-        router.push("/dashboard/supervisor");
-        return;
+        setSupervisorBookingsLoading(true);
+        try {
+          const sbRes = await getSupervisorBookings(freshUser.id);
+          if (sbRes.succeeded && sbRes.data) setSupervisorBookings(sbRes.data);
+        } catch { /* silent */ } finally { setSupervisorBookingsLoading(false); }
       }
 
       if (freshUser.role === "ProviderOwner") {
@@ -226,6 +236,19 @@ export default function DashboardPage() {
     finally { setBookingSaving(false); }
   }
 
+  async function handleRateBooking(bookingId: string, rating: number, comment: string) {
+    const cpId = user?.customerProfile?.id;
+    if (!cpId) return;
+    try {
+      const res = await rateBooking({ bookingId, customerProfileId: cpId, rating, comment: comment || null });
+      if (res.succeeded && res.data) {
+        setBookings((prev) =>
+          prev.map((b) => (b.id === bookingId ? { ...b, review: res.data! } : b))
+        );
+      }
+    } catch { /* silent */ }
+  }
+
   function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -279,7 +302,10 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2 sm:gap-4">
           <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">{user.firstName} {user.lastName}</span>
           <ThemeToggle />
-          <button onClick={handleLogout} className="px-3 sm:px-4 py-2 text-sm text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Log out</button>
+          <button onClick={handleLogout} className="p-2 sm:px-4 sm:py-2 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" title="Log out">
+            <LogOut className="w-5 h-5 sm:hidden" />
+            <span className="hidden sm:inline text-sm">Log out</span>
+          </button>
         </div>
       </header>
 
@@ -325,7 +351,7 @@ export default function DashboardPage() {
         <div className="grid lg:grid-cols-3 gap-4 sm:gap-6">
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-              <div className="bg-brand-green-light dark:bg-green-900/20 px-4 sm:px-6 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="bg-brand-green-light dark:bg-green-900/20 px-4 sm:px-6 py-4 sm:py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3 sm:gap-4">
                   <div className="w-12 h-12 sm:w-14 sm:h-14 bg-brand-green rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-xl flex-shrink-0">{user.firstName[0]}{user.lastName[0]}</div>
                   <div>
@@ -371,7 +397,54 @@ export default function DashboardPage() {
                 {bookings.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700"><p className="text-gray-500 dark:text-gray-400 text-sm">No bookings yet.</p><p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Create your first booking to get started.</p></div>
                 ) : (
-                  <div className="space-y-3">{bookings.map((b) => <BookingRow key={b.id} booking={b} />)}</div>
+                  <div className="space-y-3">{bookings.map((b) => <BookingRow key={b.id} booking={b} customerProfileId={user?.customerProfile?.id} onRate={handleRateBooking} />)}</div>
+                )}
+              </div>
+            )}
+
+            {user.role === "Supervisor" && (
+              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 sm:p-6 border-l-4 border-l-blue-500">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base sm:text-lg">📋 My Bookings</h3>
+                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-semibold rounded-full">
+                      {supervisorBookingsLoading ? "…" : supervisorBookings.length}
+                    </span>
+                  </div>
+                  <Link href="/dashboard/supervisor" className="px-4 py-1.5 bg-brand-green text-white text-sm font-medium rounded-lg hover:bg-brand-green-dark transition-colors">Manage →</Link>
+                </div>
+                {supervisorBookingsLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full mx-auto mb-2" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Loading your bookings…</p>
+                  </div>
+                ) : supervisorBookings.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">No assigned bookings yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {supervisorBookings.map((b) => (
+                      <div key={b.id} className="flex items-stretch gap-2">
+                        <Link href={`/dashboard/supervisor`} className="flex-1 block p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-brand-green hover:shadow-sm transition-all">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{b.serviceName}</p>
+                                <StatusBadge status={b.status} />
+                              </div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{b.addressLabel}</p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500">{new Date(b.scheduledStart).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-brand-green">R{b.price.toFixed(2)}</p>
+                              <p className="text-xs text-brand-green font-medium">Manage →</p>
+                            </div>
+                          </div>
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             )}

@@ -1,11 +1,13 @@
 using CleanConnect.Application.BusinessProfiles;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleanConnect.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/supervisors")]
+[EnableCors("Frontend")]
 public sealed class SupervisorsController(ISender sender) : ControllerBase
 {
     [HttpGet]

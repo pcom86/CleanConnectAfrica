@@ -2,12 +2,14 @@ using CleanConnect.Application.BusinessProfiles;
 using CleanConnect.Application.Providers;
 using CleanConnect.Infrastructure.Entities;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleanConnect.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/business-profiles")]
+[EnableCors("Frontend")]
 public sealed class BusinessProfilesController(ISender sender) : ControllerBase
 {
     [HttpPost]

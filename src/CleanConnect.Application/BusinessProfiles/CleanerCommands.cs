@@ -17,7 +17,8 @@ public sealed record RegisterCleanerCommand(
     Guid? ProviderId,
     EmploymentType EmploymentType,
     string Skills,
-    string ServiceZones
+    string ServiceZones,
+    StaffRole StaffRole = StaffRole.Cleaner
 ) : IRequest<ApiResult<UserDto>>;
 
 public sealed class RegisterCleanerCommandValidator : AbstractValidator<RegisterCleanerCommand>
@@ -32,6 +33,7 @@ public sealed class RegisterCleanerCommandValidator : AbstractValidator<Register
         RuleFor(x => x.EmploymentType).IsInEnum();
         RuleFor(x => x.Skills).NotEmpty().MaximumLength(1000);
         RuleFor(x => x.ServiceZones).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.StaffRole).IsInEnum();
     }
 }
 
@@ -75,6 +77,7 @@ public sealed class RegisterCleanerCommandHandler(CleanConnectDbContext dbContex
                 UserId = Guid.Empty,
                 ProviderId = request.ProviderId,
                 EmploymentType = request.EmploymentType,
+                StaffRole = request.StaffRole,
                 Skills = request.Skills,
                 ServiceZones = request.ServiceZones,
                 Status = AccountStatus.Active,
@@ -102,9 +105,57 @@ public sealed class GetProviderCleanersQueryHandler(CleanConnectDbContext dbCont
         var items = await dbContext.CleanerProfiles
             .AsNoTracking()
             .Where(x => x.ProviderId == request.ProviderId && x.Status == AccountStatus.Active)
-            .Select(x => new CleanerProfileDto(x.Id, x.ProviderId, x.EmploymentType, x.Skills, x.ServiceZones, x.Rating, x.Status))
+            .Select(x => new CleanerProfileDto(x.Id, x.ProviderId, x.EmploymentType, x.StaffRole, x.Skills, x.ServiceZones, x.Rating, x.Status))
             .ToListAsync(cancellationToken);
 
         return ApiResult<List<CleanerProfileDto>>.Success(items);
+    }
+}
+
+// --- Get full team (cleaners + supervisors) with names ---
+public sealed record GetProviderTeamQuery(Guid ProviderId) : IRequest<ApiResult<List<TeamMemberDto>>>;
+
+public sealed class GetProviderTeamQueryHandler(CleanConnectDbContext dbContext)
+    : IRequestHandler<GetProviderTeamQuery, ApiResult<List<TeamMemberDto>>>
+{
+    public async Task<ApiResult<List<TeamMemberDto>>> Handle(GetProviderTeamQuery request, CancellationToken cancellationToken)
+    {
+        var cleaners = await dbContext.CleanerProfiles
+            .AsNoTracking()
+            .Include(x => x.User)
+            .Where(x => x.ProviderId == request.ProviderId && x.Status == AccountStatus.Active)
+            .Select(x => new TeamMemberDto(
+                x.Id,
+                x.UserId,
+                $"{x.User.FirstName} {x.User.LastName}",
+                x.StaffRole.ToString(),
+                x.EmploymentType.ToString(),
+                x.Skills,
+                x.ServiceZones,
+                x.Rating,
+                x.User.Email,
+                x.User.PhoneNumber,
+                x.Status.ToString()))
+            .ToListAsync(cancellationToken);
+
+        var supervisors = await dbContext.SupervisorProfiles
+            .AsNoTracking()
+            .Include(x => x.User)
+            .Where(x => x.ProviderId == request.ProviderId && x.Status == AccountStatus.Active)
+            .Select(x => new TeamMemberDto(
+                x.Id,
+                x.UserId,
+                $"{x.User.FirstName} {x.User.LastName}",
+                "Supervisor",
+                x.EmploymentType.ToString(),
+                x.Skills,
+                x.ServiceZones,
+                x.Rating,
+                x.User.Email,
+                x.User.PhoneNumber,
+                x.Status.ToString()))
+            .ToListAsync(cancellationToken);
+
+        return ApiResult<List<TeamMemberDto>>.Success(cleaners.Concat(supervisors).ToList());
     }
 }

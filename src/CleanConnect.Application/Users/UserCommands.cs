@@ -11,11 +11,13 @@ public sealed record AddressRequest(string StreetAddress, string Suburb, string 
 
 public sealed record CustomerProfileRequest(CustomerType CustomerType, string? CompanyName, string? VatNumber, string? BillingAddress, string? DefaultPaymentMethodReference, AddressRequest? Address = null);
 
-public sealed record CleanerProfileRequest(Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, AccountStatus Status = AccountStatus.Active);
+public sealed record CleanerProfileRequest(Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, AccountStatus Status = AccountStatus.Active, StaffRole StaffRole = StaffRole.Cleaner);
+
+public sealed record SupervisorProfileRequest(Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, AccountStatus Status = AccountStatus.Active);
 
 public sealed record CreateUserCommand(string FirstName, string LastName, string Email, string PhoneNumber, string PasswordHash, UserRole Role, AccountStatus Status = AccountStatus.Active, string? IdNumber = null, CustomerProfileRequest? CustomerProfile = null, CleanerProfileRequest? CleanerProfile = null) : IRequest<ApiResult<UserDto>>;
 
-public sealed record UpdateUserRequest(string FirstName, string LastName, string Email, string PhoneNumber, UserRole Role, AccountStatus Status, CustomerProfileRequest? CustomerProfile = null, CleanerProfileRequest? CleanerProfile = null);
+public sealed record UpdateUserRequest(string FirstName, string LastName, string Email, string PhoneNumber, UserRole Role, AccountStatus Status, CustomerProfileRequest? CustomerProfile = null, CleanerProfileRequest? CleanerProfile = null, SupervisorProfileRequest? SupervisorProfile = null);
 
 public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCommand>
 {
@@ -31,6 +33,7 @@ public sealed class CreateUserCommandValidator : AbstractValidator<CreateUserCom
         RuleFor(x => x.CustomerProfile!.CustomerType).IsInEnum().When(x => x.CustomerProfile is not null);
         RuleFor(x => x.CleanerProfile!.EmploymentType).IsInEnum().When(x => x.CleanerProfile is not null);
         RuleFor(x => x.CleanerProfile!.Status).IsInEnum().When(x => x.CleanerProfile is not null);
+        RuleFor(x => x.CleanerProfile!.StaffRole).IsInEnum().When(x => x.CleanerProfile is not null);
         RuleFor(x => x.IdNumber)
             .Must(x => string.IsNullOrEmpty(x) || (x.Length == 13 && x.All(char.IsDigit)))
             .WithMessage("ID number must be exactly 13 digits.");
@@ -119,6 +122,7 @@ public sealed class CreateUserCommandHandler(CleanConnectDbContext dbContext) : 
                 UserId = user.Id,
                 ProviderId = request.CleanerProfile.ProviderId,
                 EmploymentType = request.CleanerProfile.EmploymentType,
+                StaffRole = request.CleanerProfile.StaffRole,
                 Skills = request.CleanerProfile.Skills,
                 ServiceZones = request.CleanerProfile.ServiceZones,
                 Status = request.CleanerProfile.Status,
@@ -134,7 +138,7 @@ public sealed class CreateUserCommandHandler(CleanConnectDbContext dbContext) : 
     }
 }
 
-public sealed record UpdateUserCommand(Guid UserId, string FirstName, string LastName, string Email, string PhoneNumber, UserRole Role, AccountStatus Status, CustomerProfileRequest? CustomerProfile = null, CleanerProfileRequest? CleanerProfile = null) : IRequest<ApiResult<UserDto>>;
+public sealed record UpdateUserCommand(Guid UserId, string FirstName, string LastName, string Email, string PhoneNumber, UserRole Role, AccountStatus Status, CustomerProfileRequest? CustomerProfile = null, CleanerProfileRequest? CleanerProfile = null, SupervisorProfileRequest? SupervisorProfile = null) : IRequest<ApiResult<UserDto>>;
 
 public sealed class UpdateUserCommandValidator : AbstractValidator<UpdateUserCommand>
 {
@@ -150,6 +154,9 @@ public sealed class UpdateUserCommandValidator : AbstractValidator<UpdateUserCom
         RuleFor(x => x.CustomerProfile!.CustomerType).IsInEnum().When(x => x.CustomerProfile is not null);
         RuleFor(x => x.CleanerProfile!.EmploymentType).IsInEnum().When(x => x.CleanerProfile is not null);
         RuleFor(x => x.CleanerProfile!.Status).IsInEnum().When(x => x.CleanerProfile is not null);
+        RuleFor(x => x.CleanerProfile!.StaffRole).IsInEnum().When(x => x.CleanerProfile is not null);
+        RuleFor(x => x.SupervisorProfile!.EmploymentType).IsInEnum().When(x => x.SupervisorProfile is not null);
+        RuleFor(x => x.SupervisorProfile!.Status).IsInEnum().When(x => x.SupervisorProfile is not null);
     }
 }
 
@@ -160,6 +167,7 @@ public sealed class UpdateUserCommandHandler(CleanConnectDbContext dbContext) : 
         var user = await dbContext.Users
             .Include(x => x.CustomerProfile)
             .Include(x => x.CleanerProfile)
+            .Include(x => x.SupervisorProfile)
             .SingleOrDefaultAsync(x => x.Id == request.UserId, cancellationToken);
 
         if (user is null)
@@ -176,12 +184,21 @@ public sealed class UpdateUserCommandHandler(CleanConnectDbContext dbContext) : 
             return ApiResult<UserDto>.Failure("A user with this email address or phone number already exists.");
         }
 
-        if (request.CleanerProfile?.ProviderId is Guid providerId)
+        if (request.CleanerProfile?.ProviderId is Guid cleanerProviderId)
         {
-            var providerExists = await dbContext.Providers.AnyAsync(x => x.Id == providerId, cancellationToken);
+            var providerExists = await dbContext.Providers.AnyAsync(x => x.Id == cleanerProviderId, cancellationToken);
             if (!providerExists)
             {
                 return ApiResult<UserDto>.Failure("Provider was not found for the cleaner profile.");
+            }
+        }
+
+        if (request.SupervisorProfile?.ProviderId is Guid supervisorProviderId)
+        {
+            var providerExists = await dbContext.Providers.AnyAsync(x => x.Id == supervisorProviderId, cancellationToken);
+            if (!providerExists)
+            {
+                return ApiResult<UserDto>.Failure("Provider was not found for the supervisor profile.");
             }
         }
 
@@ -196,13 +213,14 @@ public sealed class UpdateUserCommandHandler(CleanConnectDbContext dbContext) : 
 
         UpsertCustomerProfile(user, request.CustomerProfile, now);
         UpsertCleanerProfile(user, request.CleanerProfile, now);
+        UpsertSupervisorProfile(user, request.SupervisorProfile, now);
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResult<UserDto>.Success(UserMappings.ToDto(user));
     }
 
-    private static void UpsertCustomerProfile(User user, CustomerProfileRequest? request, DateTimeOffset now)
+    private void UpsertCustomerProfile(User user, CustomerProfileRequest? request, DateTimeOffset now)
     {
         if (request is null)
         {
@@ -217,6 +235,7 @@ public sealed class UpdateUserCommandHandler(CleanConnectDbContext dbContext) : 
                 UserId = user.Id,
                 CreatedAt = now
             };
+            dbContext.CustomerProfiles.Add(user.CustomerProfile);
         }
 
         user.CustomerProfile.CustomerType = request.CustomerType;
@@ -227,7 +246,7 @@ public sealed class UpdateUserCommandHandler(CleanConnectDbContext dbContext) : 
         user.CustomerProfile.UpdatedAt = now;
     }
 
-    private static void UpsertCleanerProfile(User user, CleanerProfileRequest? request, DateTimeOffset now)
+    private void UpsertCleanerProfile(User user, CleanerProfileRequest? request, DateTimeOffset now)
     {
         if (request is null)
         {
@@ -242,6 +261,7 @@ public sealed class UpdateUserCommandHandler(CleanConnectDbContext dbContext) : 
                 UserId = user.Id,
                 CreatedAt = now
             };
+            dbContext.CleanerProfiles.Add(user.CleanerProfile);
         }
 
         user.CleanerProfile.ProviderId = request.ProviderId;
@@ -249,7 +269,34 @@ public sealed class UpdateUserCommandHandler(CleanConnectDbContext dbContext) : 
         user.CleanerProfile.Skills = request.Skills;
         user.CleanerProfile.ServiceZones = request.ServiceZones;
         user.CleanerProfile.Status = request.Status;
+        user.CleanerProfile.StaffRole = request.StaffRole;
         user.CleanerProfile.UpdatedAt = now;
+    }
+
+    private void UpsertSupervisorProfile(User user, SupervisorProfileRequest? request, DateTimeOffset now)
+    {
+        if (request is null)
+        {
+            return;
+        }
+
+        if (user.SupervisorProfile is null)
+        {
+            user.SupervisorProfile = new SupervisorProfile
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                CreatedAt = now
+            };
+            dbContext.SupervisorProfiles.Add(user.SupervisorProfile);
+        }
+
+        user.SupervisorProfile.ProviderId = request.ProviderId;
+        user.SupervisorProfile.EmploymentType = request.EmploymentType;
+        user.SupervisorProfile.Skills = request.Skills;
+        user.SupervisorProfile.ServiceZones = request.ServiceZones;
+        user.SupervisorProfile.Status = request.Status;
+        user.SupervisorProfile.UpdatedAt = now;
     }
 }
 
@@ -269,14 +316,17 @@ public sealed class ListUsersQueryHandler(CleanConnectDbContext dbContext) : IRe
 
         var total = await query.CountAsync(cancellationToken);
 
-        var items = await query
+        var entities = await query
             .Include(x => x.CustomerProfile)
+                .ThenInclude(cp => cp!.Addresses)
             .Include(x => x.CleanerProfile)
+            .Include(x => x.SupervisorProfile)
             .OrderByDescending(x => x.CreatedAt)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
-            .Select(x => UserMappings.ToDto(x))
             .ToListAsync(cancellationToken);
+
+        var items = entities.Select(UserMappings.ToDto).ToList();
 
         return ApiResult<PagedResult<UserDto>>.Success(new PagedResult<UserDto>(items, request.Page, request.PageSize, total));
     }
@@ -400,8 +450,12 @@ internal static class UserMappings
 
         var cleanerProfile = user.CleanerProfile is null
             ? null
-            : new CleanerProfileDto(user.CleanerProfile.Id, user.CleanerProfile.ProviderId, user.CleanerProfile.EmploymentType, user.CleanerProfile.Skills, user.CleanerProfile.ServiceZones, user.CleanerProfile.Rating, user.CleanerProfile.Status);
+            : new CleanerProfileDto(user.CleanerProfile.Id, user.CleanerProfile.ProviderId, user.CleanerProfile.EmploymentType, user.CleanerProfile.StaffRole, user.CleanerProfile.Skills, user.CleanerProfile.ServiceZones, user.CleanerProfile.Rating, user.CleanerProfile.Status);
 
-        return new UserDto(user.Id, user.FirstName, user.LastName, user.Email, user.PhoneNumber, user.Role, user.Status, user.IdNumber, customerProfile, cleanerProfile);
+        var supervisorProfile = user.SupervisorProfile is null
+            ? null
+            : new SupervisorProfileDto(user.SupervisorProfile.Id, user.SupervisorProfile.ProviderId, user.SupervisorProfile.EmploymentType, user.SupervisorProfile.Skills, user.SupervisorProfile.ServiceZones, user.SupervisorProfile.Rating, user.SupervisorProfile.Status);
+
+        return new UserDto(user.Id, user.FirstName, user.LastName, user.Email, user.PhoneNumber, user.Role, user.Status, user.IdNumber, user.MustChangePassword, customerProfile, cleanerProfile, supervisorProfile);
     }
 }

@@ -1,11 +1,13 @@
 using CleanConnect.Application.CarWash;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleanConnect.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/car-wash-bookings")]
+[EnableCors("Frontend")]
 public sealed class CarWashBookingsController(ISender sender) : ControllerBase
 {
     [HttpPost]

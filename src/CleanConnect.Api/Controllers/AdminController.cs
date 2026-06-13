@@ -3,6 +3,7 @@ using CleanConnect.Application.Common;
 using CleanConnect.Application.MembershipPlans;
 using CleanConnect.Infrastructure;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,7 @@ namespace CleanConnect.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/admin")]
+[EnableCors("Frontend")]
 public sealed class AdminController(ISender sender, CleanConnectDbContext dbContext) : ControllerBase
 {
     [HttpGet("stats")]

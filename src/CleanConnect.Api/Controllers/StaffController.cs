@@ -2,6 +2,7 @@ using CleanConnect.Application.BusinessProfiles;
 using CleanConnect.Application.Users;
 using CleanConnect.Infrastructure.Entities;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleanConnect.Api.Controllers;
@@ -34,6 +35,7 @@ public sealed record UpdateStaffRequest(
 
 [ApiController]
 [Route("api/v1/staff")]
+[EnableCors("Frontend")]
 public sealed class StaffController(ISender sender) : ControllerBase
 {
     [HttpPost]

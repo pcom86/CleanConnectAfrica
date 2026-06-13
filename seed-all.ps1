@@ -288,9 +288,9 @@ function Register-Supervisor($FirstName, $LastName, $Email, $Phone, $ProviderId,
 $bpCheck = Invoke-ApiGet "/api/v1/business-profiles/me?contactUserId=$($owner.id)"
 $providerId = if ($bpCheck.succeeded -and $bpCheck.data) { $bpCheck.data.id } else { $owner.id }
 
-Register-Cleaner "Thabo" "Mokoena" "cleaner1@spotless.co.za" "0731112222" $providerId 1 "Standard Cleaning, Window Cleaning" "Claremont, Rondebosch"
-Register-Cleaner "Lerato" "Dlamini" "cleaner2@spotless.co.za" "0732223333" $providerId 2 "Deep Cleaning, Carpet Cleaning" "Newlands, Observatory"
-Register-Supervisor "Sipho" "Ndlovu" "supervisor1@spotless.co.za" "0733334444" $providerId 1 "Team Leadership, Quality Control, Deep Cleaning" "Claremont, Rondebosch, Newlands, Observatory"
+$cleaner1 = Register-Cleaner "Thabo" "Mokoena" "cleaner1@spotless.co.za" "0731112222" $providerId 1 "Standard Cleaning, Window Cleaning" "Claremont, Rondebosch"
+$cleaner2 = Register-Cleaner "Lerato" "Dlamini" "cleaner2@spotless.co.za" "0732223333" $providerId 2 "Deep Cleaning, Carpet Cleaning" "Newlands, Observatory"
+$supervisor = Register-Supervisor "Sipho" "Ndlovu" "supervisor1@spotless.co.za" "0733334444" $providerId 1 "Team Leadership, Quality Control, Deep Cleaning" "Claremont, Rondebosch, Newlands, Observatory"
 
 # ------------------------------------------------------------------
 # 5. Fetch a Service for bookings
@@ -355,7 +355,59 @@ if ($onsiteRes.succeeded) {
 }
 
 # ------------------------------------------------------------------
-# 8. Final Summary
+# 8. Create Accepted & Assigned Booking (for supervisor testing)
+# ------------------------------------------------------------------
+$today = (Get-Date).Date.AddHours(10).ToUniversalTime()
+$scheduledStart3 = $today.ToString("yyyy-MM-ddTHH:mm:ssZ")
+$scheduledEnd3 = $today.AddHours(2).ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+$assignedPayload = @{
+    CustomerProfileId = $customerProfileId
+    ServiceId         = $serviceId
+    AddressId         = $addressId
+    ScheduledStart    = $scheduledStart3
+    ScheduledEnd      = $scheduledEnd3
+    SpecialInstructions = "Team assignment test booking"
+    AccessNotes       = "Main entrance, code 1234"
+    HasPets           = $false
+    ParkingInformation = "Driveway available"
+    PayOnsite         = $true
+}
+$assignedRes = Invoke-ApiPost "/api/v1/cleaning-bookings" $assignedPayload
+if ($assignedRes.succeeded) {
+    $assignedBookingId = $assignedRes.data.id
+    Write-Host "Created Assigned Booking: ID=$assignedBookingId | Status=$($assignedRes.data.status)" -ForegroundColor Green
+
+    # Accept the booking
+    $acceptPayload = @{ ProviderId = $providerId }
+    $acceptRes = Invoke-ApiPost "/api/v1/cleaning-bookings/$assignedBookingId/accept" $acceptPayload
+    if ($acceptRes.succeeded) {
+        Write-Host "Accepted Booking: ID=$assignedBookingId" -ForegroundColor Green
+
+        # Assign team (cleaners + supervisor)
+        if ($cleaner1 -and $cleaner2 -and $supervisor) {
+            $teamPayload = @{
+                CleanerProfileIds = @($cleaner1.cleanerProfile.id, $cleaner2.cleanerProfile.id)
+                SupervisorProfileId = $supervisor.supervisorProfile.id
+            }
+            $teamRes = Invoke-ApiPost "/api/v1/cleaning-bookings/$assignedBookingId/assign-team" $teamPayload
+            if ($teamRes.succeeded) {
+                Write-Host "Assigned Team to Booking: ID=$assignedBookingId | Cleaners: $($cleaner1.cleanerProfile.id), $($cleaner2.cleanerProfile.id) | Supervisor: $($supervisor.supervisorProfile.id)" -ForegroundColor Green
+            } else {
+                Write-Host "Failed to assign team: $($teamRes.error)" -ForegroundColor Red
+            }
+        } else {
+            Write-Host "Skipping team assignment - missing cleaner or supervisor data" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "Failed to accept booking: $($acceptRes.error)" -ForegroundColor Red
+    }
+} else {
+    Write-Host "Failed to create assigned booking: $($assignedRes.error)" -ForegroundColor Red
+}
+
+# ------------------------------------------------------------------
+# 9. Final Summary
 # ------------------------------------------------------------------
 Write-Host "`n============================================================" -ForegroundColor Yellow
 Write-Host "                      SEED SUMMARY                         " -ForegroundColor Yellow
@@ -402,6 +454,14 @@ if ($onsiteRes.succeeded) {
     Write-Host "   Status     : $($onsiteRes.data.status)" -ForegroundColor White
     Write-Host "   PayOnsite  : $($onsiteRes.data.payOnsite)" -ForegroundColor White
     Write-Host "   Price      : R$($onsiteRes.data.price) $($onsiteRes.data.currency)" -ForegroundColor White
+}
+
+if ($assignedRes.succeeded) {
+    Write-Host "`n👷 ASSIGNED TEAM BOOKING (for supervisor testing)" -ForegroundColor Cyan
+    Write-Host "   Booking ID : $assignedBookingId" -ForegroundColor White
+    Write-Host "   Service    : $serviceName" -ForegroundColor White
+    Write-Host "   Status     : Accepted & Assigned" -ForegroundColor White
+    Write-Host "   Team       : 2 Cleaners + 1 Supervisor" -ForegroundColor White
 }
 
 Write-Host "`n============================================================" -ForegroundColor Yellow

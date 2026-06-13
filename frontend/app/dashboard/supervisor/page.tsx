@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LogOut, ArrowLeft } from "lucide-react";
 import { getSession, clearSession } from "@/lib/auth";
 import { getSupervisorBookings, getBookingById, checkIn, checkOut, createPostJobReport } from "@/lib/api";
 import type { User, Booking, BookingDetail, TeamMember } from "@/lib/types";
@@ -24,6 +25,7 @@ export default function SupervisorDashboardPage() {
   const [checkInSubmitting, setCheckInSubmitting] = useState(false);
 
   // Check-out form
+  const [showCheckOutPanel, setShowCheckOutPanel] = useState(true);
   const [checkOutNotes, setCheckOutNotes] = useState("");
   const [workSummary, setWorkSummary] = useState("");
   const [checkOutPhoto, setCheckOutPhoto] = useState<string | null>(null);
@@ -87,14 +89,17 @@ export default function SupervisorDashboardPage() {
     if (!user) return;
     setCheckInSubmitting(true);
     try {
-      const res = await checkIn({
+      const payload = {
         bookingId,
         userId: user.id,
         latitude: -33.9249,
         longitude: 18.4241,
-        photoUrl: checkInPhoto || "",
-        notes: checkInNotes,
-      });
+        photoUrl: checkInPhoto || null,
+        notes: checkInNotes || null,
+      };
+      console.log("Check-in payload:", payload);
+      const res = await checkIn(payload);
+      console.log("Check-in response:", res);
       if (res.succeeded) {
         setCheckInNotes("");
         setCheckInPhoto(null);
@@ -103,7 +108,8 @@ export default function SupervisorDashboardPage() {
       } else {
         setError(res.error ?? "Check-in failed");
       }
-    } catch {
+    } catch (err) {
+      console.error("Check-in error:", err);
       setError("Unable to check in");
     } finally {
       setCheckInSubmitting(false);
@@ -114,24 +120,29 @@ export default function SupervisorDashboardPage() {
     if (!user) return;
     setCheckOutSubmitting(true);
     try {
-      const res = await checkOut({
+      const payload = {
         bookingId,
         userId: user.id,
         latitude: -33.9249,
         longitude: 18.4241,
-        photoUrl: checkOutPhoto || "",
-        notes: checkOutNotes,
-        workSummary: workSummary,
-      });
+        photoUrl: checkOutPhoto || null,
+        notes: checkOutNotes || null,
+        workSummary: workSummary || null,
+      };
+      console.log("Check-out payload:", payload);
+      const res = await checkOut(payload);
+      console.log("Check-out response:", res);
       if (res.succeeded) {
         setCheckOutNotes("");
         setWorkSummary("");
         setCheckOutPhoto(null);
+        setShowCheckOutPanel(false);
         loadBookingDetail(bookingId);
       } else {
         setError(res.error ?? "Check-out failed");
       }
-    } catch {
+    } catch (err) {
+      console.error("Check-out error:", err);
       setError("Unable to check out");
     } finally {
       setCheckOutSubmitting(false);
@@ -191,16 +202,26 @@ export default function SupervisorDashboardPage() {
           </div>
           <span className="font-bold text-xl text-gray-900 dark:text-gray-100">CleanConnect Africa</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">
             {user?.firstName} {user?.lastName}
           </span>
           <ThemeToggle />
           <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            onClick={() => router.push("/dashboard")}
+            className="p-2 sm:px-4 sm:py-2 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            title="Back to dashboard"
           >
-            Log out
+            <ArrowLeft className="w-5 h-5 sm:hidden" />
+            <span className="hidden sm:inline text-sm">Dashboard</span>
+          </button>
+          <button
+            onClick={handleLogout}
+            className="p-2 sm:px-4 sm:py-2 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            title="Log out"
+          >
+            <LogOut className="w-5 h-5 sm:hidden" />
+            <span className="hidden sm:inline text-sm">Log out</span>
           </button>
         </div>
       </header>
@@ -248,6 +269,15 @@ export default function SupervisorDashboardPage() {
 
           {/* Booking Details */}
           <div className="lg:col-span-2 order-1 lg:order-2">
+            {selectedBooking && (
+              <button
+                onClick={() => setSelectedBooking(null)}
+                className="lg:hidden mb-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to bookings
+              </button>
+            )}
             {bookingLoading ? (
               <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-green" />
@@ -350,6 +380,7 @@ export default function SupervisorDashboardPage() {
                   )}
 
                   {/* Check-out */}
+                  {showCheckOutPanel && (
                   <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                     <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Check Out</h4>
                     <div className="mb-2">
@@ -402,6 +433,7 @@ export default function SupervisorDashboardPage() {
                       {checkOutSubmitting ? "Checking out..." : "Check Out"}
                     </button>
                   </div>
+                  )}
                 </div>
 
                 {/* Post-Job Report */}

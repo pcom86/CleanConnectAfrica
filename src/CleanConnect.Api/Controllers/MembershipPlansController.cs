@@ -1,11 +1,13 @@
 using CleanConnect.Application.BusinessProfiles;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleanConnect.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/membership-plans")]
+[EnableCors("Frontend")]
 public sealed class MembershipPlansController(ISender sender) : ControllerBase
 {
     [HttpGet]

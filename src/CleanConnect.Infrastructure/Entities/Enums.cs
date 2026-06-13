@@ -77,6 +77,14 @@ public enum EmploymentType
     ProviderStaff = 3
 }
 
+public enum StaffRole
+{
+    Cleaner = 1,
+    Washer = 2,
+    Driver = 3,
+    Supervisor = 4
+}
+
 public enum ProviderStatus
 {
     ApplicationStarted = 1,

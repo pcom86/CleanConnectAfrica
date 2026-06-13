@@ -1,12 +1,15 @@
+using CleanConnect.Application.BusinessProfiles;
 using CleanConnect.Application.Cleaning;
 using CleanConnect.Infrastructure.Entities;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleanConnect.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/cleaning-bookings")]
+[EnableCors("Frontend")]
 public sealed class CleaningBookingsController(ISender sender) : ControllerBase
 {
     [HttpGet("{bookingId:guid}")]
@@ -44,6 +47,20 @@ public sealed class CleaningBookingsController(ISender sender) : ControllerBase
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 
+    [HttpPost("{bookingId:guid}/assign-team")]
+    public async Task<IActionResult> AssignTeam(Guid bookingId, [FromBody] AssignTeamRequest request, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new AssignTeamCommand(bookingId, request.CleanerProfileIds, request.SupervisorProfileId), cancellationToken);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpGet("team/{providerId:guid}")]
+    public async Task<IActionResult> GetProviderTeam(Guid providerId, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new GetProviderTeamQuery(providerId), cancellationToken);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
     [HttpPost("{bookingId:guid}/complete")]
     public async Task<IActionResult> CompleteCleaning(Guid bookingId, [FromBody] CompleteCleaningRequest request, CancellationToken cancellationToken)
     {
@@ -56,3 +73,4 @@ public sealed record UpdateCleaningBookingStatusRequest(BookingStatus NewStatus,
 public sealed record AcceptBookingRequest(Guid ProviderId);
 public sealed record AssignCleanerRequest(Guid CleanerProfileId);
 public sealed record CompleteCleaningRequest(List<string> AfterPhotos, string? CleanerNotes, List<string>? CompletedChecklistItems);
+public sealed record AssignTeamRequest(List<Guid> CleanerProfileIds, Guid? SupervisorProfileId);

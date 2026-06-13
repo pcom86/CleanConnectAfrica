@@ -1,11 +1,14 @@
 using CleanConnect.Application.BusinessProfiles;
+using CleanConnect.Infrastructure.Entities;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleanConnect.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/cleaners")]
+[EnableCors("Frontend")]
 public sealed class CleanersController(ISender sender) : ControllerBase
 {
     [HttpGet]
@@ -18,7 +21,14 @@ public sealed class CleanersController(ISender sender) : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Register([FromBody] RegisterCleanerCommand command, CancellationToken cancellationToken)
     {
-        var result = await sender.Send(command, cancellationToken);
-        return result.Succeeded ? Ok(result) : BadRequest(result);
+        try
+        {
+            var result = await sender.Send(command with { StaffRole = StaffRole.Cleaner }, cancellationToken);
+            return result.Succeeded ? Ok(result) : BadRequest(result);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message, type = ex.GetType().Name, inner = ex.InnerException?.Message });
+        }
     }
 }

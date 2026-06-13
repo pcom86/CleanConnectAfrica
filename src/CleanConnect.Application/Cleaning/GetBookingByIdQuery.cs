@@ -27,12 +27,24 @@ public sealed class GetBookingByIdQueryHandler(CleanConnectDbContext dbContext) 
             return ApiResult<BookingDetailDto>.Failure("Booking was not found.");
 
         var assignment = booking.Assignment;
-        var cleanerIds = assignment?.CleanerProfileId is Guid cid ? new List<Guid> { cid } : new List<Guid>();
         var providerIds = assignment?.ProviderId is Guid pid ? new List<Guid> { pid } : new List<Guid>();
+
+        // Load all team cleaners from TeamCleanerProfileIdsJson or fallback to single CleanerProfileId
+        var teamCleanerIds = new List<Guid>();
+        if (assignment is not null)
+        {
+            try
+            {
+                var parsed = System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(assignment.TeamCleanerProfileIdsJson ?? "[]");
+                if (parsed is { Count: > 0 }) teamCleanerIds = parsed;
+                else if (assignment.CleanerProfileId.HasValue) teamCleanerIds = new List<Guid> { assignment.CleanerProfileId.Value };
+            }
+            catch { if (assignment.CleanerProfileId.HasValue) teamCleanerIds = new List<Guid> { assignment.CleanerProfileId.Value }; }
+        }
 
         var cleaners = await dbContext.CleanerProfiles
             .AsNoTracking()
-            .Where(x => cleanerIds.Contains(x.Id))
+            .Where(x => teamCleanerIds.Contains(x.Id))
             .Include(x => x.User)
             .ToDictionaryAsync(x => x.Id, cancellationToken);
 
@@ -40,6 +52,14 @@ public sealed class GetBookingByIdQueryHandler(CleanConnectDbContext dbContext) 
             .AsNoTracking()
             .Where(x => providerIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, cancellationToken);
+
+        // Load supervisor
+        string? supervisorName = null;
+        if (assignment?.SupervisorId is Guid supId)
+        {
+            var supUser = await dbContext.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == supId, cancellationToken);
+            if (supUser is not null) supervisorName = $"{supUser.FirstName} {supUser.LastName}";
+        }
 
         var jobDetail = booking.CleaningJobDetail is null ? null : new CleaningJobDetailDto(
             booking.CleaningJobDetail.Id,
@@ -56,6 +76,14 @@ public sealed class GetBookingByIdQueryHandler(CleanConnectDbContext dbContext) 
             booking.CleaningJobDetail.CompletedAt
         );
 
+        var teamMembers = teamCleanerIds
+            .Select(id => cleaners.TryGetValue(id, out var cp)
+                ? new TeamMemberDto(cp.Id, cp.UserId, $"{cp.User.FirstName} {cp.User.LastName}", "Cleaner", cp.EmploymentType.ToString(), cp.Skills, cp.ServiceZones, cp.Rating, cp.User.Email, cp.User.PhoneNumber, cp.Status.ToString())
+                : null)
+            .Where(x => x is not null)
+            .Select(x => x!)
+            .ToList();
+
         var assignments = assignment is null ? new List<AssignmentDto>() : new List<AssignmentDto>
         {
             new AssignmentDto(
@@ -71,7 +99,9 @@ public sealed class GetBookingByIdQueryHandler(CleanConnectDbContext dbContext) 
                 assignment.AssignedType,
                 assignment.Status,
                 assignment.AssignedAt,
-                assignment.AcceptedAt)
+                assignment.AcceptedAt,
+                teamMembers,
+                supervisorName)
         };
 
         var milestones = booking.ServiceMilestones

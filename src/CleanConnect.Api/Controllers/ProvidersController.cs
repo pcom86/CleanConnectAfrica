@@ -1,11 +1,13 @@
 using CleanConnect.Application.Providers;
 using MediatR;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleanConnect.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/providers")]
+[EnableCors("Frontend")]
 public sealed class ProvidersController(ISender sender) : ControllerBase
 {
     [HttpPost("apply")]

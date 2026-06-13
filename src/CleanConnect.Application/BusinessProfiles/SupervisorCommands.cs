@@ -127,7 +127,7 @@ public sealed class CheckInCommandHandler(CleanConnectDbContext dbContext)
             .SingleOrDefaultAsync(b => b.Id == request.BookingId, cancellationToken);
 
         if (booking is null)
-            return ApiResult<JobCheckInDto>.Failure("Booking not found.");
+            return ApiResult<JobCheckInDto>.Failure($"Booking not found. BookingId: {request.BookingId}");
 
         var user = await dbContext.Users
             .Include(u => u.CleanerProfile)
@@ -135,10 +135,10 @@ public sealed class CheckInCommandHandler(CleanConnectDbContext dbContext)
             .SingleOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
 
         if (user is null)
-            return ApiResult<JobCheckInDto>.Failure("User not found.");
+            return ApiResult<JobCheckInDto>.Failure($"User not found. UserId: {request.UserId}");
 
         if (user.CleanerProfile is null && user.SupervisorProfile is null)
-            return ApiResult<JobCheckInDto>.Failure("Only cleaners or supervisors can check in.");
+            return ApiResult<JobCheckInDto>.Failure($"Only cleaners or supervisors can check in. User role: {user.Role}, HasCleanerProfile: {user.CleanerProfile != null}, HasSupervisorProfile: {user.SupervisorProfile != null}");
 
         var now = DateTimeOffset.UtcNow;
         var checkIn = new JobCheckIn
@@ -214,13 +214,18 @@ public sealed class CheckOutCommandHandler(CleanConnectDbContext dbContext)
             .SingleOrDefaultAsync(b => b.Id == request.BookingId, cancellationToken);
 
         if (booking is null)
-            return ApiResult<JobCheckOutDto>.Failure("Booking not found.");
+            return ApiResult<JobCheckOutDto>.Failure($"Booking not found. BookingId: {request.BookingId}");
 
         var user = await dbContext.Users
+            .Include(u => u.CleanerProfile)
+            .Include(u => u.SupervisorProfile)
             .SingleOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
 
         if (user is null)
-            return ApiResult<JobCheckOutDto>.Failure("User not found.");
+            return ApiResult<JobCheckOutDto>.Failure($"User not found. UserId: {request.UserId}");
+
+        if (user.CleanerProfile is null && user.SupervisorProfile is null)
+            return ApiResult<JobCheckOutDto>.Failure($"Only cleaners or supervisors can check out. User role: {user.Role}, HasCleanerProfile: {user.CleanerProfile != null}, HasSupervisorProfile: {user.SupervisorProfile != null}");
 
         var now = DateTimeOffset.UtcNow;
         var checkOut = new JobCheckOut
@@ -238,6 +243,19 @@ public sealed class CheckOutCommandHandler(CleanConnectDbContext dbContext)
         };
 
         dbContext.JobCheckOuts.Add(checkOut);
+
+        // Update booking status to Completed on check-out
+        booking.Status = BookingStatus.Completed;
+        booking.UpdatedAt = now;
+        dbContext.ServiceMilestones.Add(new ServiceMilestone
+        {
+            Id = Guid.NewGuid(),
+            BookingId = booking.Id,
+            MilestoneType = "CheckOut",
+            Status = BookingStatus.Completed.ToString(),
+            OccurredAt = now
+        });
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var dto = new JobCheckOutDto(

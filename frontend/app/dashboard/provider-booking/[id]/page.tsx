@@ -5,13 +5,14 @@ import { useParams, useRouter } from "next/navigation";
 import {
   getBookingById,
   acceptBooking,
-  assignCleanerToBooking,
   updateBookingStatus,
   completeBooking,
-  getProviderCleaners,
+  getProviderTeam,
+  assignTeam,
+  registerStaff,
   getMyBusinessProfile,
 } from "@/lib/api";
-import type { BookingDetail, CleanerProfile, ServiceMilestone } from "@/lib/types";
+import type { BookingDetail, TeamMember } from "@/lib/types";
 import { getSession } from "@/lib/auth";
 
 const statusLabels: Record<string, string> = {
@@ -40,7 +41,9 @@ export default function ProviderBookingDetailPage() {
   const bookingId = params.id as string;
 
   const [booking, setBooking] = useState<BookingDetail | null>(null);
-  const [cleaners, setCleaners] = useState<CleanerProfile[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [selectedCleaners, setSelectedCleaners] = useState<Set<string>>(new Set());
+  const [selectedSupervisor, setSelectedSupervisor] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +53,12 @@ export default function ProviderBookingDetailPage() {
   const [showCompleteForm, setShowCompleteForm] = useState(false);
   const [afterPhotos, setAfterPhotos] = useState("");
   const [cleanerNotes, setCleanerNotes] = useState("");
+
+  // Inline add-member form
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [memberForm, setMemberForm] = useState({ firstName: "", lastName: "", email: "", phoneNumber: "", employmentType: "InternalStaff", staffRole: "Cleaner", skills: "", serviceZones: "" });
+  const [memberSaving, setMemberSaving] = useState(false);
+  const [memberError, setMemberError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -66,10 +75,10 @@ export default function ProviderBookingDetailPage() {
       const bpRes = await getMyBusinessProfile(session.id);
       if (bpRes.succeeded && bpRes.data) {
         setProviderId(bpRes.data.id);
-        // Load cleaners for this provider
-        const cleanersRes = await getProviderCleaners(bpRes.data.id);
-        if (cleanersRes.succeeded && cleanersRes.data) {
-          setCleaners(cleanersRes.data);
+        // Load team for this provider
+        const teamRes = await getProviderTeam(bpRes.data.id);
+        if (teamRes.succeeded && teamRes.data) {
+          setTeamMembers(teamRes.data);
         }
       }
 
@@ -104,18 +113,43 @@ export default function ProviderBookingDetailPage() {
     }
   }
 
-  async function handleAssignCleaner(cleanerProfileId: string) {
+  const EMPLOYMENT_TYPES = ["InternalStaff", "Contractor", "ProviderStaff"];
+  const STAFF_ROLES = ["Cleaner", "Washer", "Driver", "Supervisor"] as const;
+  const ROLE_EMOJI: Record<string, string> = { Cleaner: "🧹", Washer: "🫧", Driver: "🚗", Supervisor: "👷" };
+
+  async function handleAddMember(e: React.FormEvent) {
+    e.preventDefault();
+    if (!providerId) return;
+    setMemberSaving(true);
+    setMemberError(null);
+    const res = await registerStaff({ ...memberForm, passwordHash: "Password@123", providerId });
+    if (res.succeeded && res.data) {
+      setMemberForm({ firstName: "", lastName: "", email: "", phoneNumber: "", employmentType: "InternalStaff", staffRole: "Cleaner", skills: "", serviceZones: "" });
+      setShowAddMember(false);
+      const teamRes = await getProviderTeam(providerId);
+      if (teamRes.succeeded && teamRes.data) setTeamMembers(teamRes.data);
+    } else {
+      setMemberError(res.error ?? `Failed to add staff member.`);
+    }
+    setMemberSaving(false);
+  }
+
+  async function handleAssignTeam() {
     setActionLoading(true);
     setError(null);
     try {
-      const res = await assignCleanerToBooking(bookingId, cleanerProfileId);
-      if (res.succeeded && res.data) {
+      const cleanerIds = Array.from(selectedCleaners);
+      if (cleanerIds.length === 0) { setError("Select at least one cleaner."); setActionLoading(false); return; }
+      const res = await assignTeam(bookingId, cleanerIds, selectedSupervisor || null);
+      if (res.succeeded) {
+        setSelectedCleaners(new Set());
+        setSelectedSupervisor("");
         await loadData();
       } else {
-        setError(res.error ?? "Failed to assign cleaner.");
+        setError(res.error ?? "Failed to assign team.");
       }
     } catch {
-      setError("API error while assigning cleaner.");
+      setError("API error while assigning team.");
     } finally {
       setActionLoading(false);
     }
@@ -174,7 +208,7 @@ export default function ProviderBookingDetailPage() {
       case "PendingPayment":
         return { label: "Accept Job", action: handleAccept, color: "bg-brand-green text-white hover:bg-brand-green-dark" };
       case "Assigned":
-        return { label: "Dispatch Team", action: null, color: "bg-amber-600 text-white hover:bg-amber-700", isDispatch: true };
+        return { label: "Assign Team", action: null, color: "bg-amber-600 text-white hover:bg-amber-700", isDispatch: true };
       case "CleanerEnRoute":
         return { label: "Report On Site", action: handleOnSite, color: "bg-purple-600 text-white hover:bg-purple-700" };
       case "InProgress":
@@ -259,28 +293,175 @@ export default function ProviderBookingDetailPage() {
             {error && <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">{error}</div>}
 
             {nextAction.isDispatch ? (
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600 dark:text-gray-300">Select a cleaner to dispatch to this job:</p>
-                {cleaners.length === 0 ? (
-                  <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-400">
-                    No cleaners registered. Register cleaners from your business profile first.
+              <div className="space-y-5">
+                {/* ── Step 1: Build your team ── */}
+                <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Step 1 — Your Staff</p>
+                    <button
+                      type="button"
+                      onClick={() => { setShowAddMember(!showAddMember); setMemberError(null); }}
+                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                        showAddMember
+                          ? "bg-gray-400 text-white"
+                          : "bg-brand-green text-white hover:bg-brand-green-dark"
+                      }`}
+                    >
+                      {showAddMember ? "✕ Cancel" : "+ Add Staff"}
+                    </button>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {cleaners.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => handleAssignCleaner(c.id)}
-                        disabled={actionLoading}
-                        className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-left hover:border-brand-green hover:bg-brand-green-light dark:hover:bg-green-900/20 transition-colors disabled:opacity-50"
-                      >
-                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Cleaner ID: {c.id.slice(0, 8)}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{c.employmentType} · {c.skills.slice(0, 40)}…</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Rating: {c.rating.toFixed(1)}</p>
-                      </button>
-                    ))}
+
+                  {/* Inline create form */}
+                  {showAddMember && (
+                    <form onSubmit={handleAddMember} className="p-4 space-y-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                      {memberError && <p className="text-xs text-red-600 dark:text-red-400">{memberError}</p>}
+                      {/* Role selector */}
+                      <div className="flex gap-2 flex-wrap">
+                        {STAFF_ROLES.map(r => (
+                          <button key={r} type="button"
+                            onClick={() => setMemberForm(f => ({ ...f, staffRole: r }))}
+                            className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${
+                              memberForm.staffRole === r
+                                ? "bg-brand-green text-white border-brand-green"
+                                : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                            }`}>
+                            {ROLE_EMOJI[r]} {r}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(["firstName", "lastName"] as const).map(k => (
+                          <input key={k} required placeholder={k === "firstName" ? "First name" : "Last name"}
+                            className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-green"
+                            value={memberForm[k]} onChange={e => setMemberForm(f => ({ ...f, [k]: e.target.value }))} />
+                        ))}
+                        <input required type="email" placeholder="Email"
+                          className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-green"
+                          value={memberForm.email} onChange={e => setMemberForm(f => ({ ...f, email: e.target.value }))} />
+                        <input required type="tel" placeholder="Phone"
+                          className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-green"
+                          value={memberForm.phoneNumber} onChange={e => setMemberForm(f => ({ ...f, phoneNumber: e.target.value }))} />
+                        <select className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-green"
+                          value={memberForm.employmentType} onChange={e => setMemberForm(f => ({ ...f, employmentType: e.target.value }))}>
+                          {EMPLOYMENT_TYPES.map(t => <option key={t}>{t}</option>)}
+                        </select>
+                        <input required placeholder="Service zones (e.g. Cape Town)"
+                          className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-green"
+                          value={memberForm.serviceZones} onChange={e => setMemberForm(f => ({ ...f, serviceZones: e.target.value }))} />
+                        <input required placeholder="Skills (e.g. Deep cleaning)"
+                          className="col-span-2 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-green"
+                          value={memberForm.skills} onChange={e => setMemberForm(f => ({ ...f, skills: e.target.value }))} />
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs text-gray-400">Default password: <span className="font-mono">Password@123</span></p>
+                        <button type="submit" disabled={memberSaving}
+                          className="text-xs bg-brand-green text-white px-4 py-1.5 rounded-lg font-medium hover:bg-brand-green-dark disabled:opacity-50 transition-colors">
+                          {memberSaving ? "Saving…" : `Add ${memberForm.staffRole}`}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Current staff roster */}
+                  <div className="p-4">
+                    {teamMembers.length === 0 ? (
+                      <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-2">No staff yet — click <strong>+ Add Staff</strong> above.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {teamMembers.map(m => (
+                          <div key={m.profileId} className="flex items-center gap-3 p-2.5 rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
+                            <span className="text-base">{ROLE_EMOJI[m.memberRole] ?? "�"}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{m.name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{m.memberRole} · {m.employmentType}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+
+                {/* ── Step 2: Assign to this job ── */}
+                {teamMembers.length > 0 && (() => {
+                  const assignable = teamMembers.filter(m => m.memberRole !== "Supervisor");
+                  const supervisors = teamMembers.filter(m => m.memberRole === "Supervisor");
+                  return (
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Step 2 — Assign to This Job</p>
+                      </div>
+                      <div className="p-4 space-y-4">
+                        <div>
+                          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Assign Staff <span className="text-red-500">*</span></p>
+                          {assignable.length === 0 ? (
+                            <p className="text-sm text-amber-600">No staff in team — add cleaners, washers, or drivers above.</p>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {assignable.map(m => (
+                                <label key={m.profileId} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                                  selectedCleaners.has(m.profileId)
+                                    ? "border-brand-green bg-green-50 dark:bg-green-900/20 dark:border-green-600"
+                                    : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:border-brand-green"
+                                }`}>
+                                  <input type="checkbox" className="mt-0.5 rounded border-gray-300"
+                                    checked={selectedCleaners.has(m.profileId)}
+                                    onChange={e => {
+                                      const next = new Set(selectedCleaners);
+                                      e.target.checked ? next.add(m.profileId) : next.delete(m.profileId);
+                                      setSelectedCleaners(next);
+                                    }} />
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{m.name}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{m.employmentType} · {m.serviceZones}</p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{m.skills}</p>
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {supervisors.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Supervisor <span className="text-gray-400">(optional)</span></p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                                selectedSupervisor === "" ? "border-gray-300 bg-gray-50 dark:bg-gray-800" : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-blue-400"
+                              }`}>
+                                <input type="radio" name="supervisor" value="" checked={selectedSupervisor === ""} onChange={() => setSelectedSupervisor("")} />
+                                <span className="text-sm text-gray-500">None</span>
+                              </label>
+                              {supervisors.map(m => (
+                                <label key={m.profileId} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                                  selectedSupervisor === m.profileId
+                                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600"
+                                    : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 hover:border-blue-400"
+                                }`}>
+                                  <input type="radio" name="supervisor" value={m.profileId}
+                                    checked={selectedSupervisor === m.profileId}
+                                    onChange={() => setSelectedSupervisor(m.profileId)} className="mt-0.5" />
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{m.name}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{m.employmentType} · {m.serviceZones}</p>
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <button
+                          onClick={handleAssignTeam}
+                          disabled={actionLoading || selectedCleaners.size === 0}
+                          className="w-full py-3 bg-amber-600 text-white font-semibold rounded-xl hover:bg-amber-700 disabled:opacity-50 transition-colors"
+                        >
+                          {actionLoading ? "Assigning…" : `Dispatch Team (${selectedCleaners.size} cleaner${selectedCleaners.size !== 1 ? "s" : ""}${selectedSupervisor ? " + supervisor" : ""})`}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <button
@@ -364,18 +545,39 @@ export default function ProviderBookingDetailPage() {
         {/* Assignments */}
         {booking.assignments.length > 0 && (
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4 uppercase tracking-wide">Assignments</h2>
-            <div className="space-y-3">
-              {booking.assignments.map((a) => (
-                <div key={a.id} className="p-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-900 dark:text-gray-100">{a.cleanerName ?? a.providerName ?? "Unassigned"}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{a.status}</span>
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4 uppercase tracking-wide">Assigned Team</h2>
+            {booking.assignments.map((a) => (
+              <div key={a.id} className="space-y-3">
+                {/* Team cleaners */}
+                {(a.teamMembers && a.teamMembers.length > 0) ? (
+                  <div>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Cleaners</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {a.teamMembers.map((m) => (
+                        <div key={m.profileId} className="p-3 rounded-xl border border-green-100 dark:border-green-900/40 bg-green-50 dark:bg-green-900/10 text-sm">
+                          <p className="font-medium text-gray-900 dark:text-gray-100">{m.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{m.employmentType} · {m.serviceZones}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{a.assignedType} · Assigned {new Date(a.assignedAt).toLocaleDateString("en-ZA")}</p>
-                </div>
-              ))}
-            </div>
+                ) : a.cleanerName ? (
+                  <div className="p-3 rounded-xl border border-green-100 dark:border-green-900/40 bg-green-50 dark:bg-green-900/10 text-sm">
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{a.cleanerName}</p>
+                  </div>
+                ) : null}
+                {/* Supervisor */}
+                {a.supervisorName && (
+                  <div>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Supervisor</p>
+                    <div className="p-3 rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/10 text-sm">
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{a.supervisorName}</p>
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-gray-400 dark:text-gray-500">{a.assignedType} · Assigned {new Date(a.assignedAt).toLocaleDateString("en-ZA")}</p>
+              </div>
+            ))}
           </div>
         )}
 
