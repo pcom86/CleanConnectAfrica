@@ -3,6 +3,7 @@ using System;
 using CleanConnect.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CleanConnect.Infrastructure.Migrations
 {
     [DbContext(typeof(CleanConnectDbContext))]
-    partial class CleanConnectDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260616131228_AddBookingOneTimeAddress")]
+    partial class AddBookingOneTimeAddress
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -203,9 +206,6 @@ namespace CleanConnect.Infrastructure.Migrations
                     b.Property<bool>("HasPets")
                         .HasColumnType("boolean");
 
-                    b.Property<bool>("IsRecurring")
-                        .HasColumnType("boolean");
-
                     b.Property<string>("ParkingInformation")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -221,16 +221,6 @@ namespace CleanConnect.Infrastructure.Migrations
                     b.Property<decimal>("Price")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)");
-
-                    b.Property<string>("RecurrenceFrequency")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<Guid?>("RecurrenceGroupId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int?>("RecurrenceIndex")
-                        .HasColumnType("integer");
 
                     b.Property<DateTimeOffset>("ScheduledEnd")
                         .HasColumnType("timestamp with time zone");
@@ -258,8 +248,6 @@ namespace CleanConnect.Infrastructure.Migrations
                     b.HasIndex("AddressId");
 
                     b.HasIndex("PaymentStatus");
-
-                    b.HasIndex("RecurrenceGroupId");
 
                     b.HasIndex("ScheduledStart");
 

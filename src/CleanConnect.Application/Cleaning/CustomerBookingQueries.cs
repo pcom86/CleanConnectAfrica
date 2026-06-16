@@ -29,9 +29,11 @@ public sealed class GetCustomerBookingsQueryHandler(CleanConnectDbContext dbCont
                 x.ServiceId,
                 x.Service.Name,
                 x.Service.Category,
-                x.AddressId,
-                x.Address.Label,
-                $"{x.Address.StreetAddress}, {x.Address.Suburb}, {x.Address.City}",
+                x.AddressId ?? Guid.Empty,
+                x.Address != null ? x.Address.Label : (x.AddressLabel ?? ""),
+                x.Address != null
+                    ? x.Address.StreetAddress + ", " + x.Address.Suburb + ", " + x.Address.City
+                    : (x.AddressStreet ?? "") + ", " + (x.AddressSuburb ?? "") + ", " + (x.AddressCity ?? ""),
                 x.ScheduledStart,
                 x.ScheduledEnd,
                 x.Status,

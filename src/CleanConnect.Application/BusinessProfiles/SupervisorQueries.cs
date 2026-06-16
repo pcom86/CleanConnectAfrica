@@ -59,9 +59,11 @@ public sealed class GetSupervisorBookingsQueryHandler(CleanConnectDbContext dbCo
             b.ServiceId,
             b.Service?.Name ?? "",
             b.Service?.Category ?? "",
-            b.AddressId,
-            b.Address?.Label ?? "",
-            $"{b.Address?.StreetAddress}, {b.Address?.Suburb}",
+            b.AddressId ?? Guid.Empty,
+            b.Address?.Label ?? b.AddressLabel ?? "",
+            b.Address != null
+                ? $"{b.Address.StreetAddress}, {b.Address.Suburb}"
+                : $"{b.AddressStreet}, {b.AddressSuburb}",
             b.ScheduledStart,
             b.ScheduledEnd,
             b.Status,
@@ -86,21 +88,36 @@ public sealed class GetBookingCheckInsQueryHandler(CleanConnectDbContext dbConte
 {
     public async Task<ApiResult<List<JobCheckInDto>>> Handle(GetBookingCheckInsQuery request, CancellationToken cancellationToken)
     {
-        var items = await dbContext.JobCheckIns
+        var rows = await dbContext.JobCheckIns
             .AsNoTracking()
             .Where(x => x.BookingId == request.BookingId)
             .OrderBy(x => x.CheckInTime)
-            .Select(x => new JobCheckInDto(
+            .Select(x => new
+            {
                 x.Id,
                 x.BookingId,
                 x.UserId,
-                $"{x.User.FirstName} {x.User.LastName}",
+                UserName = $"{x.User.FirstName} {x.User.LastName}",
                 x.CheckInTime,
                 x.Latitude,
                 x.Longitude,
                 x.PhotoUrl,
-                x.Notes))
+                x.PhotoUrlsJson,
+                x.Notes
+            })
             .ToListAsync(cancellationToken);
+
+        var items = rows.Select(x => new JobCheckInDto(
+            x.Id,
+            x.BookingId,
+            x.UserId,
+            x.UserName,
+            x.CheckInTime,
+            x.Latitude,
+            x.Longitude,
+            x.PhotoUrl,
+            PhotoJsonHelper.DeserializePhotos(x.PhotoUrlsJson, x.PhotoUrl),
+            x.Notes)).ToList();
 
         return ApiResult<List<JobCheckInDto>>.Success(items);
     }
@@ -116,22 +133,38 @@ public sealed class GetBookingCheckOutsQueryHandler(CleanConnectDbContext dbCont
 {
     public async Task<ApiResult<List<JobCheckOutDto>>> Handle(GetBookingCheckOutsQuery request, CancellationToken cancellationToken)
     {
-        var items = await dbContext.JobCheckOuts
+        var rows = await dbContext.JobCheckOuts
             .AsNoTracking()
             .Where(x => x.BookingId == request.BookingId)
             .OrderBy(x => x.CheckOutTime)
-            .Select(x => new JobCheckOutDto(
+            .Select(x => new
+            {
                 x.Id,
                 x.BookingId,
                 x.UserId,
-                $"{x.User.FirstName} {x.User.LastName}",
+                UserName = $"{x.User.FirstName} {x.User.LastName}",
                 x.CheckOutTime,
                 x.Latitude,
                 x.Longitude,
                 x.PhotoUrl,
+                x.PhotoUrlsJson,
                 x.Notes,
-                x.WorkSummary))
+                x.WorkSummary
+            })
             .ToListAsync(cancellationToken);
+
+        var items = rows.Select(x => new JobCheckOutDto(
+            x.Id,
+            x.BookingId,
+            x.UserId,
+            x.UserName,
+            x.CheckOutTime,
+            x.Latitude,
+            x.Longitude,
+            x.PhotoUrl,
+            PhotoJsonHelper.DeserializePhotos(x.PhotoUrlsJson, x.PhotoUrl),
+            x.Notes,
+            x.WorkSummary)).ToList();
 
         return ApiResult<List<JobCheckOutDto>>.Success(items);
     }
@@ -173,5 +206,28 @@ public sealed class GetPostJobReportQueryHandler(CleanConnectDbContext dbContext
         );
 
         return ApiResult<PostJobReportDto>.Success(dto);
+    }
+}
+
+internal static class PhotoJsonHelper
+{
+    public static List<string> DeserializePhotos(string? json, string? fallback)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return FallbackList(fallback);
+        try
+        {
+            var list = JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
+            if (list.Count == 0) return FallbackList(fallback);
+            return list;
+        }
+        catch
+        {
+            return FallbackList(fallback);
+        }
+    }
+
+    private static List<string> FallbackList(string? url)
+    {
+        return string.IsNullOrWhiteSpace(url) ? new List<string>() : new List<string> { url };
     }
 }

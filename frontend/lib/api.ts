@@ -1,6 +1,13 @@
-import type { ApiResult, User, BusinessProfile, PagedResult, AdminStats, MembershipPlan, Service, Booking, ProviderBooking, Payment, BookingDetail, CleanerProfile, SupervisorProfile, JobCheckIn, JobCheckOut, PostJobReport, TeamMember, Review } from "./types";
+import type { ApiResult, User, BusinessProfile, PagedResult, AdminStats, MembershipPlan, Service, Booking, ProviderBooking, Payment, BookingDetail, CleanerProfile, SupervisorProfile, JobCheckIn, JobCheckOut, PostJobReport, TeamMember, Review, Notification } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+
+async function safeJson<T>(res: Response): Promise<ApiResult<T>> {
+  try { return (await res.json()) as ApiResult<T>; }
+  catch {
+    return { succeeded: false, data: null, error: `Server error (${res.status})` } as ApiResult<T>;
+  }
+}
 
 async function post<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -8,7 +15,7 @@ async function post<T>(path: string, body: unknown): Promise<ApiResult<T>> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return res.json() as Promise<ApiResult<T>>;
+  return safeJson<T>(res);
 }
 
 async function get<T>(path: string): Promise<ApiResult<T>> {
@@ -16,7 +23,7 @@ async function get<T>(path: string): Promise<ApiResult<T>> {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   });
-  return res.json() as Promise<ApiResult<T>>;
+  return safeJson<T>(res);
 }
 
 async function put<T>(path: string, body: unknown): Promise<ApiResult<T>> {
@@ -25,7 +32,7 @@ async function put<T>(path: string, body: unknown): Promise<ApiResult<T>> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  return res.json() as Promise<ApiResult<T>>;
+  return safeJson<T>(res);
 }
 
 export async function registerUser(data: {
@@ -260,7 +267,8 @@ export async function listServices(): Promise<ApiResult<Service[]>> {
 export async function createCleaningBooking(data: {
   customerProfileId: string;
   serviceId: string;
-  addressId: string;
+  addressId?: string | null;
+  oneTimeAddress?: { streetAddress: string; suburb: string; city: string; province: string; postalCode?: string | null; label?: string | null } | null;
   scheduledStart: string;
   scheduledEnd: string;
   specialInstructions?: string | null;
@@ -268,8 +276,10 @@ export async function createCleaningBooking(data: {
   hasPets?: boolean;
   parkingInformation?: string | null;
   payOnsite?: boolean;
-}): Promise<ApiResult<Booking>> {
-  return post<Booking>("/api/v1/cleaning-bookings", data);
+  recurrenceFrequency?: string | null;
+  recurrenceCount?: number;
+}): Promise<ApiResult<Booking[]>> {
+  return post<Booking[]>("/api/v1/cleaning-bookings", data);
 }
 
 export async function getCustomerBookings(customerProfileId: string, page = 1, pageSize = 20): Promise<ApiResult<PagedResult<Booking>>> {
@@ -295,7 +305,7 @@ export async function addCustomerAddress(userId: string, data: {
   suburb: string;
   city: string;
   province: string;
-  postalCode: string;
+  postalCode?: string | null;
   accessInstructions?: string | null;
 }): Promise<ApiResult<User>> {
   return post<User>(`/api/v1/users/${userId}/addresses`, data);
@@ -317,8 +327,11 @@ export async function getBookingById(bookingId: string): Promise<ApiResult<Booki
   return get<BookingDetail>(`/api/v1/cleaning-bookings/${bookingId}`);
 }
 
-export async function acceptBooking(bookingId: string, providerId: string): Promise<ApiResult<Booking>> {
-  return post<Booking>(`/api/v1/cleaning-bookings/${bookingId}/accept`, { providerId });
+export async function acceptBooking(bookingId: string, providerId: string, scope?: "Single" | "Selected" | "AllInSeries", selectedBookingIds?: string[]): Promise<ApiResult<Booking[]>> {
+  const payload: Record<string, unknown> = { providerId };
+  if (scope) payload.scope = scope;
+  if (selectedBookingIds) payload.selectedBookingIds = selectedBookingIds;
+  return post<Booking[]>(`/api/v1/cleaning-bookings/${bookingId}/accept`, payload);
 }
 
 export async function assignCleanerToBooking(bookingId: string, cleanerProfileId: string): Promise<ApiResult<Booking>> {
@@ -421,6 +434,7 @@ export async function checkIn(data: {
   latitude?: number | null;
   longitude?: number | null;
   photoUrl?: string | null;
+  photoUrls?: string[];
   notes?: string | null;
 }): Promise<ApiResult<JobCheckIn>> {
   return post<JobCheckIn>("/api/v1/supervisors/check-in", data);
@@ -432,6 +446,7 @@ export async function checkOut(data: {
   latitude?: number | null;
   longitude?: number | null;
   photoUrl?: string | null;
+  photoUrls?: string[];
   notes?: string | null;
   workSummary?: string | null;
 }): Promise<ApiResult<JobCheckOut>> {
@@ -461,4 +476,16 @@ export async function getBookingCheckIns(bookingId: string): Promise<ApiResult<J
 
 export async function getBookingCheckOuts(bookingId: string): Promise<ApiResult<JobCheckOut[]>> {
   return get<JobCheckOut[]>(`/api/v1/supervisors/check-outs/${bookingId}`);
+}
+
+export async function getCustomerNotifications(customerProfileId: string, unreadOnly = false): Promise<ApiResult<Notification[]>> {
+  return get<Notification[]>(`/api/v1/notifications/customer/${customerProfileId}?unreadOnly=${unreadOnly}`);
+}
+
+export async function markNotificationRead(notificationId: string): Promise<ApiResult<boolean>> {
+  return post<boolean>(`/api/v1/notifications/${notificationId}/read`, {});
+}
+
+export async function markAllNotificationsRead(customerProfileId: string): Promise<ApiResult<number>> {
+  return post<number>(`/api/v1/notifications/customer/${customerProfileId}/read-all`, {});
 }

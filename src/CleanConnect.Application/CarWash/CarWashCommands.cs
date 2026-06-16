@@ -1,4 +1,5 @@
 using CleanConnect.Application.Common;
+using CleanConnect.Application.Notifications;
 using CleanConnect.Infrastructure;
 using CleanConnect.Infrastructure.Entities;
 using FluentValidation;
@@ -107,6 +108,8 @@ public sealed class UpdateCarWashStatusCommandHandler(CleanConnectDbContext dbCo
         detail.Booking.UpdatedAt = now;
 
         dbContext.ServiceMilestones.Add(new ServiceMilestone { Id = Guid.NewGuid(), BookingId = detail.BookingId, MilestoneType = "CarWash", Status = request.Status.ToString(), Notes = request.Notes, OccurredAt = now });
+        BookingNotifications.Add(dbContext, detail.Booking.CustomerProfileId, detail.BookingId,
+            "Car wash update", $"Your car wash is now {request.Status}.");
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResult<CarWashBookingDto>.Success(new CarWashBookingDto(detail.BookingId, detail.Id, detail.CarWashStatus, detail.VehicleType, detail.PackageType, detail.NumberOfVehicles));

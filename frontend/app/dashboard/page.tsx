@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { LogOut, Bell } from "lucide-react";
 import { getSession, clearSession, saveSession } from "@/lib/auth";
 import {
   getUser,
@@ -18,13 +18,17 @@ import {
   getProviderTeam,
   getSupervisorBookings,
   rateBooking,
+  getCustomerNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
 } from "@/lib/api";
-import type { User, BusinessProfile, Service, Booking, ProviderBooking, Address, TeamMember } from "@/lib/types";
+import type { User, BusinessProfile, Service, Booking, ProviderBooking, Address, TeamMember, Notification } from "@/lib/types";
 import ThemeToggle from "../components/ThemeToggle";
 import InfoRow from "./components/InfoRow";
 import StatCard from "./components/StatCard";
 import AddressCard from "./components/AddressCard";
 import BookingRow from "./components/BookingRow";
+import BookingCalendar from "./components/BookingCalendar";
 import StatusBadge from "./components/StatusBadge";
 import CategoryBadge from "./components/CategoryBadge";
 
@@ -57,6 +61,11 @@ export default function DashboardPage() {
   const [supervisorBookings, setSupervisorBookings] = useState<Booking[]>([]);
   const [supervisorBookingsLoading, setSupervisorBookingsLoading] = useState(false);
 
+  // Notifications
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+
   // Modals
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showAddAddress, setShowAddAddress] = useState(false);
@@ -73,7 +82,7 @@ export default function DashboardPage() {
   const [addrSaving, setAddrSaving] = useState(false);
 
   // New booking form
-  const [bookingForm, setBookingForm] = useState({ serviceId: "", addressId: "", date: "", time: "09:00", specialInstructions: "", accessNotes: "", hasPets: false, parkingInformation: "", payOnsite: false });
+  const [bookingForm, setBookingForm] = useState({ serviceId: "", addressId: "", date: "", time: "09:00", specialInstructions: "", accessNotes: "", hasPets: false, parkingInformation: "", payOnsite: false, isRecurring: false, recurrenceFrequency: "Weekly" as "Weekly" | "BiWeekly" | "Monthly", recurrenceCount: 2 });
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingSaving, setBookingSaving] = useState(false);
   const [bookingAddressMode, setBookingAddressMode] = useState<"saved" | "new">("saved");
@@ -147,11 +156,32 @@ export default function DashboardPage() {
           setBookings(bkRes.data.items);
           localStorage.setItem("cc_bookings_cache", JSON.stringify(bkRes.data.items));
         }
+        loadNotifications(cpId);
       }
     } catch { /* silent */ } finally { setLoading(false); }
   }
 
   function handleLogout() { clearSession(); router.push("/login"); }
+
+  async function loadNotifications(customerProfileId: string) {
+    setNotificationsLoading(true);
+    try {
+      const res = await getCustomerNotifications(customerProfileId, true);
+      if (res.succeeded && res.data) {
+        setNotifications(res.data);
+      }
+    } catch { /* silent */ } finally { setNotificationsLoading(false); }
+  }
+
+  async function handleMarkRead(notificationId: string, customerProfileId: string) {
+    await markNotificationRead(notificationId);
+    loadNotifications(customerProfileId);
+  }
+
+  async function handleMarkAllRead(customerProfileId: string) {
+    await markAllNotificationsRead(customerProfileId);
+    loadNotifications(customerProfileId);
+  }
 
   function openEditProfile() {
     if (!user) return;
@@ -197,39 +227,62 @@ export default function DashboardPage() {
     setBookingError(null);
     if (!bookingForm.serviceId || !bookingForm.date || !bookingForm.time) { setBookingError("Please select a service, date and time."); return; }
 
-    let addressId = bookingForm.addressId;
-    if (bookingAddressMode === "new") {
-      if (!bookingNewAddr.streetAddress.trim() || !bookingNewAddr.suburb.trim() || !bookingNewAddr.city.trim() || !bookingNewAddr.province.trim()) { setBookingError("Please fill in street address, suburb, city and province."); return; }
-      setBookingSaving(true);
-      try {
-        const addrRes = await addCustomerAddress(user.id, { label: bookingNewAddr.label.trim() || "Address", streetAddress: bookingNewAddr.streetAddress.trim(), suburb: bookingNewAddr.suburb.trim(), city: bookingNewAddr.city.trim(), province: bookingNewAddr.province.trim(), postalCode: bookingNewAddr.postalCode.trim(), accessInstructions: null });
-        if (addrRes.succeeded && addrRes.data) {
-          const freshUser = addrRes.data;
-          setUser(freshUser); saveSession(freshUser);
-          const newAddr = freshUser.customerProfile?.addresses?.find((a: Address) => a.streetAddress === bookingNewAddr.streetAddress.trim() && a.suburb === bookingNewAddr.suburb.trim());
-          addressId = newAddr?.id ?? "";
-        } else { setBookingError(addrRes.error ?? "Failed to save address."); setBookingSaving(false); return; }
-      } catch { setBookingError("Server error while saving address."); setBookingSaving(false); return; }
-    }
-    if (!addressId) { setBookingError("Please select or enter a valid address."); setBookingSaving(false); return; }
-
     const scheduledStart = new Date(`${bookingForm.date}T${bookingForm.time}`);
     const scheduledEnd = new Date(scheduledStart.getTime() + 2 * 60 * 60 * 1000);
     setBookingSaving(true);
+
     try {
-      const result = await createCleaningBooking({ customerProfileId: user.customerProfile.id, serviceId: bookingForm.serviceId, addressId, scheduledStart: scheduledStart.toISOString(), scheduledEnd: scheduledEnd.toISOString(), specialInstructions: bookingForm.specialInstructions.trim() || null, accessNotes: bookingForm.accessNotes.trim() || null, hasPets: bookingForm.hasPets, parkingInformation: bookingForm.parkingInformation.trim() || null, payOnsite: bookingForm.payOnsite });
-      if (result.succeeded && result.data) {
-        const newBooking = result.data!;
-        setBookings((prev) => [newBooking, ...prev]);
-        setBookingForm({ serviceId: "", addressId: "", date: "", time: "09:00", specialInstructions: "", accessNotes: "", hasPets: false, parkingInformation: "", payOnsite: false });
+      let payload: Parameters<typeof createCleaningBooking>[0] = {
+        customerProfileId: user.customerProfile.id,
+        serviceId: bookingForm.serviceId,
+        scheduledStart: scheduledStart.toISOString(),
+        scheduledEnd: scheduledEnd.toISOString(),
+        specialInstructions: bookingForm.specialInstructions.trim() || null,
+        accessNotes: bookingForm.accessNotes.trim() || null,
+        hasPets: bookingForm.hasPets,
+        parkingInformation: bookingForm.parkingInformation.trim() || null,
+        payOnsite: bookingForm.payOnsite,
+        recurrenceFrequency: bookingForm.isRecurring ? bookingForm.recurrenceFrequency : null,
+        recurrenceCount: bookingForm.isRecurring ? bookingForm.recurrenceCount : 1,
+      };
+
+      if (bookingAddressMode === "new") {
+        if (!bookingNewAddr.streetAddress.trim() || !bookingNewAddr.suburb.trim() || !bookingNewAddr.city.trim() || !bookingNewAddr.province.trim()) {
+          setBookingError("Please fill in street address, suburb, city and province.");
+          setBookingSaving(false);
+          return;
+        }
+        payload.addressId = null;
+        payload.oneTimeAddress = {
+          streetAddress: bookingNewAddr.streetAddress.trim(),
+          suburb: bookingNewAddr.suburb.trim(),
+          city: bookingNewAddr.city.trim(),
+          province: bookingNewAddr.province.trim(),
+          postalCode: bookingNewAddr.postalCode?.trim() || null,
+          label: bookingNewAddr.label?.trim() || null,
+        };
+      } else {
+        if (!bookingForm.addressId) {
+          setBookingError("Please select or enter a valid address.");
+          setBookingSaving(false);
+          return;
+        }
+        payload.addressId = bookingForm.addressId;
+      }
+
+      const result = await createCleaningBooking(payload);
+      if (result.succeeded && result.data && result.data.length > 0) {
+        const newBookings = result.data;
+        setBookings((prev) => [...newBookings, ...prev]);
+        setBookingForm({ serviceId: "", addressId: "", date: "", time: "09:00", specialInstructions: "", accessNotes: "", hasPets: false, parkingInformation: "", payOnsite: false, isRecurring: false, recurrenceFrequency: "Weekly", recurrenceCount: 2 });
         setBookingNewAddr({ label: "Home", streetAddress: "", suburb: "", city: "", province: "", postalCode: "" });
         setBookingAddressMode(customerAddresses.length > 0 ? "saved" : "new");
         setShowNewBooking(false);
-        localStorage.setItem("cc_pending_booking", JSON.stringify(newBooking));
+        localStorage.setItem("cc_pending_booking", JSON.stringify(newBookings[0]));
         if (bookingForm.payOnsite) {
           router.push("/dashboard?onsite=1");
         } else {
-          router.push(`/dashboard/booking-confirmation?bookingId=${newBooking.id}`);
+          router.push(`/dashboard/booking-confirmation?bookingId=${newBookings[0].id}`);
         }
       } else setBookingError(result.error ?? "Failed to create booking.");
     } catch { setBookingError("Server error. Please try again."); }
@@ -262,22 +315,37 @@ export default function DashboardPage() {
 
   function getFilteredProviderBookings(): ProviderBooking[] {
     if (!businessProfile) return [];
-    if (showAllProviderBookings) return providerBookings;
 
     const providerLat = businessProfile.latitude;
     const providerLng = businessProfile.longitude;
-    const radius = businessProfile.serviceRadiusKm;
+    const radius = businessProfile.serviceRadiusKm ?? 0;
 
-    if (providerLat == null || providerLng == null) {
-      // If provider has no coordinates, show all
-      return providerBookings;
-    }
+    const hasProviderCoords = providerLat != null && providerLng != null;
 
-    return providerBookings.filter((b) => {
-      if (b.addressLatitude == null || b.addressLongitude == null) return true; // include if no coords
-      const dist = haversineDistance(providerLat, providerLng, b.addressLatitude, b.addressLongitude);
-      return dist <= radius;
+    // Compute distance for each booking (null if no coords)
+    const withDist = providerBookings.map((b) => {
+      const dist =
+        hasProviderCoords && b.addressLatitude != null && b.addressLongitude != null
+          ? haversineDistance(providerLat, providerLng, b.addressLatitude, b.addressLongitude)
+          : null;
+      return { b, dist };
     });
+
+    // Default: only show bookings with known distance within service radius
+    // Show all checkbox overrides the range filter
+    const filtered = showAllProviderBookings
+      ? withDist
+      : withDist.filter(({ dist }) => dist != null && dist <= radius);
+
+    // Sort by distance ascending; unknown distances go to the end
+    filtered.sort((a, b) => {
+      if (a.dist != null && b.dist != null) return a.dist - b.dist;
+      if (a.dist != null) return -1;
+      if (b.dist != null) return 1;
+      return 0;
+    });
+
+    return filtered.map(({ b }) => b);
   }
 
   if (loading || !user) {
@@ -301,6 +369,48 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2 sm:gap-4">
           <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">{user.firstName} {user.lastName}</span>
+          <div className="relative">
+            <button
+              onClick={() => { setShowNotifications((v) => !v); if (user?.customerProfile?.id) loadNotifications(user.customerProfile.id); }}
+              className="relative p-2 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              title="Notifications"
+            >
+              <Bell className="w-5 h-5" />
+              {notifications.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">{notifications.length}</span>
+              )}
+            </button>
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50">
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                  <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Notifications</h3>
+                  {notifications.length > 0 && user?.customerProfile?.id && (
+                    <button onClick={() => handleMarkAllRead(user.customerProfile!.id)} className="text-xs text-brand-green hover:text-brand-green-dark font-medium">Mark all read</button>
+                  )}
+                </div>
+                {notificationsLoading ? (
+                  <div className="p-4 text-center text-sm text-gray-500">Loading…</div>
+                ) : notifications.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-gray-500">No new notifications</div>
+                ) : (
+                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {notifications.map((n) => (
+                      <div key={n.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{n.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{n.message}</p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-[10px] text-gray-400">{new Date(n.createdAt).toLocaleString()}</span>
+                          {user?.customerProfile?.id && (
+                            <button onClick={() => handleMarkRead(n.id, user.customerProfile!.id)} className="text-xs text-brand-green hover:text-brand-green-dark font-medium">Mark read</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <ThemeToggle />
           <button onClick={handleLogout} className="p-2 sm:px-4 sm:py-2 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" title="Log out">
             <LogOut className="w-5 h-5 sm:hidden" />
@@ -602,6 +712,13 @@ export default function DashboardPage() {
             )}
 
             {user.role === "ProviderOwner" && businessProfile && (
+              <BookingCalendar
+                bookings={myProviderBookings}
+                onBookingClick={(id) => router.push(`/dashboard/provider-booking/${id}`)}
+              />
+            )}
+
+            {user.role === "ProviderOwner" && businessProfile && (
               <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 sm:p-6 border-l-4 border-l-brand-green">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
@@ -735,6 +852,26 @@ export default function DashboardPage() {
                 <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label><input required type="date" value={bookingForm.date} onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
                 <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time</label><input required type="time" value={bookingForm.time} onChange={(e) => setBookingForm({ ...bookingForm, time: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
               </div>
+              <div className="flex items-center gap-2 p-3 bg-brand-green-light dark:bg-green-900/20 border border-brand-green/20 dark:border-green-800 rounded-lg">
+                <input type="checkbox" id="isRecurring" checked={bookingForm.isRecurring} onChange={(e) => setBookingForm({ ...bookingForm, isRecurring: e.target.checked })} className="w-4 h-4 text-brand-green border-gray-300 dark:border-gray-600 rounded focus:ring-brand-green bg-white dark:bg-gray-800" />
+                <label htmlFor="isRecurring" className="text-sm text-gray-700 dark:text-gray-300"><span className="font-medium">Recurring booking</span> — Repeat this booking automatically</label>
+              </div>
+              {bookingForm.isRecurring && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Frequency</label>
+                    <select value={bookingForm.recurrenceFrequency} onChange={(e) => setBookingForm({ ...bookingForm, recurrenceFrequency: e.target.value as "Weekly" | "BiWeekly" | "Monthly" })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800">
+                      <option value="Weekly">Weekly</option>
+                      <option value="BiWeekly">Bi-Weekly</option>
+                      <option value="Monthly">Monthly</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Occurrences <span className="text-gray-400 dark:text-gray-500 font-normal">(max 12)</span></label>
+                    <input type="number" min={2} max={12} value={bookingForm.recurrenceCount} onChange={(e) => setBookingForm({ ...bookingForm, recurrenceCount: Math.min(12, Math.max(2, parseInt(e.target.value) || 2)) })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" />
+                  </div>
+                </div>
+              )}
               <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Special Instructions <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></label><textarea value={bookingForm.specialInstructions} onChange={(e) => setBookingForm({ ...bookingForm, specialInstructions: e.target.value })} rows={2} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
               <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Access Notes <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></label><input value={bookingForm.accessNotes} onChange={(e) => setBookingForm({ ...bookingForm, accessNotes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
               <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Parking Information <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></label><input value={bookingForm.parkingInformation} onChange={(e) => setBookingForm({ ...bookingForm, parkingInformation: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>

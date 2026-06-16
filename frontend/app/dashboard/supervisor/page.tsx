@@ -21,14 +21,14 @@ export default function SupervisorDashboardPage() {
   // Check-in form
   const [showCheckInPanel, setShowCheckInPanel] = useState(true);
   const [checkInNotes, setCheckInNotes] = useState("");
-  const [checkInPhoto, setCheckInPhoto] = useState<string | null>(null);
+  const [checkInPhotos, setCheckInPhotos] = useState<string[]>([]);
   const [checkInSubmitting, setCheckInSubmitting] = useState(false);
 
   // Check-out form
   const [showCheckOutPanel, setShowCheckOutPanel] = useState(true);
   const [checkOutNotes, setCheckOutNotes] = useState("");
   const [workSummary, setWorkSummary] = useState("");
-  const [checkOutPhoto, setCheckOutPhoto] = useState<string | null>(null);
+  const [checkOutPhotos, setCheckOutPhotos] = useState<string[]>([]);
   const [checkOutSubmitting, setCheckOutSubmitting] = useState(false);
 
   // Post-job report form
@@ -85,24 +85,36 @@ export default function SupervisorDashboardPage() {
     }
   }
 
+  const MAX_PHOTO_BYTES = 2 * 1024 * 1024; // 2 MB per photo
+  const MAX_TOTAL_PAYLOAD_BYTES = 8 * 1024 * 1024; // 8 MB total JSON
+
+  function estimatePayloadSize(obj: unknown): number {
+    try { return new Blob([JSON.stringify(obj)]).size; } catch { return 0; }
+  }
+
   async function handleCheckIn(bookingId: string) {
     if (!user) return;
     setCheckInSubmitting(true);
+    setError(null);
     try {
       const payload = {
         bookingId,
         userId: user.id,
         latitude: -33.9249,
         longitude: 18.4241,
-        photoUrl: checkInPhoto || null,
+        ...(checkInPhotos.length > 0 ? { photoUrls: checkInPhotos } : {}),
         notes: checkInNotes || null,
       };
-      console.log("Check-in payload:", payload);
+      const size = estimatePayloadSize(payload);
+      if (size > MAX_TOTAL_PAYLOAD_BYTES) {
+        setError(`Photos are too large (${(size / 1024 / 1024).toFixed(1)} MB). Please remove some photos or use smaller images (max ~${(MAX_TOTAL_PAYLOAD_BYTES / 1024 / 1024).toFixed(0)} MB total).`);
+        setCheckInSubmitting(false);
+        return;
+      }
       const res = await checkIn(payload);
-      console.log("Check-in response:", res);
       if (res.succeeded) {
         setCheckInNotes("");
-        setCheckInPhoto(null);
+        setCheckInPhotos([]);
         setShowCheckInPanel(false);
         loadBookingDetail(bookingId);
       } else {
@@ -110,7 +122,7 @@ export default function SupervisorDashboardPage() {
       }
     } catch (err) {
       console.error("Check-in error:", err);
-      setError("Unable to check in");
+      setError("Network error: unable to reach the server. Please check your connection and try again.");
     } finally {
       setCheckInSubmitting(false);
     }
@@ -119,23 +131,28 @@ export default function SupervisorDashboardPage() {
   async function handleCheckOut(bookingId: string) {
     if (!user) return;
     setCheckOutSubmitting(true);
+    setError(null);
     try {
       const payload = {
         bookingId,
         userId: user.id,
         latitude: -33.9249,
         longitude: 18.4241,
-        photoUrl: checkOutPhoto || null,
+        ...(checkOutPhotos.length > 0 ? { photoUrls: checkOutPhotos } : {}),
         notes: checkOutNotes || null,
         workSummary: workSummary || null,
       };
-      console.log("Check-out payload:", payload);
+      const size = estimatePayloadSize(payload);
+      if (size > MAX_TOTAL_PAYLOAD_BYTES) {
+        setError(`Photos are too large (${(size / 1024 / 1024).toFixed(1)} MB). Please remove some photos or use smaller images (max ~${(MAX_TOTAL_PAYLOAD_BYTES / 1024 / 1024).toFixed(0)} MB total).`);
+        setCheckOutSubmitting(false);
+        return;
+      }
       const res = await checkOut(payload);
-      console.log("Check-out response:", res);
       if (res.succeeded) {
         setCheckOutNotes("");
         setWorkSummary("");
-        setCheckOutPhoto(null);
+        setCheckOutPhotos([]);
         setShowCheckOutPanel(false);
         loadBookingDetail(bookingId);
       } else {
@@ -143,7 +160,7 @@ export default function SupervisorDashboardPage() {
       }
     } catch (err) {
       console.error("Check-out error:", err);
-      setError("Unable to check out");
+      setError("Network error: unable to reach the server. Please check your connection and try again.");
     } finally {
       setCheckOutSubmitting(false);
     }
@@ -335,30 +352,37 @@ export default function SupervisorDashboardPage() {
                     <div className="mb-4 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                       <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Check In</h4>
                       <div className="mb-2">
-                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Photo (optional)</label>
+                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Photos (optional)</label>
                         <input
                           type="file"
                           accept="image/*"
                           capture="environment"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => setCheckInPhoto(reader.result as string);
-                              reader.readAsDataURL(file);
+                            if (!file) return;
+                            if (file.size > MAX_PHOTO_BYTES) {
+                              setError(`Photo too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max allowed is ${(MAX_PHOTO_BYTES / 1024 / 1024).toFixed(0)} MB.`);
+                              return;
                             }
+                            const reader = new FileReader();
+                            reader.onloadend = () => setCheckInPhotos((prev) => [...prev, reader.result as string]);
+                            reader.readAsDataURL(file);
                           }}
                           className="w-full text-xs text-gray-600 dark:text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
                         />
-                        {checkInPhoto && (
-                          <div className="mt-2 relative">
-                            <img src={checkInPhoto} alt="Check-in photo" className="w-full h-32 object-cover rounded-lg" />
-                            <button
-                              onClick={() => setCheckInPhoto(null)}
-                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
-                            >
-                              ×
-                            </button>
+                        {checkInPhotos.length > 0 && (
+                          <div className="mt-2 grid grid-cols-3 gap-2">
+                            {checkInPhotos.map((photo, idx) => (
+                              <div key={idx} className="relative">
+                                <img src={photo} alt={`Check-in photo ${idx + 1}`} className="w-full h-20 object-cover rounded-lg" />
+                                <button
+                                  onClick={() => setCheckInPhotos((prev) => prev.filter((_, i) => i !== idx))}
+                                  className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -384,30 +408,37 @@ export default function SupervisorDashboardPage() {
                   <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                     <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Check Out</h4>
                     <div className="mb-2">
-                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Photo (optional)</label>
+                      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Photos (optional)</label>
                       <input
                         type="file"
                         accept="image/*"
                         capture="environment"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => setCheckOutPhoto(reader.result as string);
-                            reader.readAsDataURL(file);
+                          if (!file) return;
+                          if (file.size > MAX_PHOTO_BYTES) {
+                            setError(`Photo too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max allowed is ${(MAX_PHOTO_BYTES / 1024 / 1024).toFixed(0)} MB.`);
+                            return;
                           }
+                          const reader = new FileReader();
+                          reader.onloadend = () => setCheckOutPhotos((prev) => [...prev, reader.result as string]);
+                          reader.readAsDataURL(file);
                         }}
                         className="w-full text-xs text-gray-600 dark:text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-green-100 file:text-green-700 hover:file:bg-green-200"
                       />
-                      {checkOutPhoto && (
-                        <div className="mt-2 relative">
-                          <img src={checkOutPhoto} alt="Check-out photo" className="w-full h-32 object-cover rounded-lg" />
-                          <button
-                            onClick={() => setCheckOutPhoto(null)}
-                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
-                          >
-                            ×
-                          </button>
+                      {checkOutPhotos.length > 0 && (
+                        <div className="mt-2 grid grid-cols-3 gap-2">
+                          {checkOutPhotos.map((photo, idx) => (
+                            <div key={idx} className="relative">
+                              <img src={photo} alt={`Check-out photo ${idx + 1}`} className="w-full h-20 object-cover rounded-lg" />
+                              <button
+                                onClick={() => setCheckOutPhotos((prev) => prev.filter((_, i) => i !== idx))}
+                                className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

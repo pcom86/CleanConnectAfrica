@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CleanConnect.Application.Common;
+using CleanConnect.Application.Notifications;
 using CleanConnect.Application.Users;
 using CleanConnect.Infrastructure;
 using CleanConnect.Infrastructure.Entities;
@@ -106,7 +107,8 @@ public sealed record CheckInCommand(
     decimal? Latitude,
     decimal? Longitude,
     string? PhotoUrl,
-    string? Notes
+    string? Notes,
+    List<string>? PhotoUrls = null
 ) : IRequest<ApiResult<JobCheckInDto>>;
 
 public sealed class CheckInCommandValidator : AbstractValidator<CheckInCommand>
@@ -140,6 +142,14 @@ public sealed class CheckInCommandHandler(CleanConnectDbContext dbContext)
         if (user.CleanerProfile is null && user.SupervisorProfile is null)
             return ApiResult<JobCheckInDto>.Failure($"Only cleaners or supervisors can check in. User role: {user.Role}, HasCleanerProfile: {user.CleanerProfile != null}, HasSupervisorProfile: {user.SupervisorProfile != null}");
 
+        var photoUrls = (request.PhotoUrls ?? new List<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToList();
+        if (photoUrls.Count == 0 && !string.IsNullOrWhiteSpace(request.PhotoUrl))
+        {
+            photoUrls.Add(request.PhotoUrl);
+        }
+
         var now = DateTimeOffset.UtcNow;
         var checkIn = new JobCheckIn
         {
@@ -149,7 +159,8 @@ public sealed class CheckInCommandHandler(CleanConnectDbContext dbContext)
             CheckInTime = now,
             Latitude = request.Latitude,
             Longitude = request.Longitude,
-            PhotoUrl = request.PhotoUrl,
+            PhotoUrl = photoUrls.FirstOrDefault(),
+            PhotoUrlsJson = JsonSerializer.Serialize(photoUrls),
             Notes = request.Notes,
             CreatedAt = now
         };
@@ -171,13 +182,17 @@ public sealed class CheckInCommandHandler(CleanConnectDbContext dbContext)
             });
         }
 
+        BookingNotifications.Add(dbContext, booking.CustomerProfileId, booking.Id,
+            "Team checked in",
+            $"{user.FirstName} {user.LastName} has arrived and checked in for your booking.");
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var dto = new JobCheckInDto(
             checkIn.Id, checkIn.BookingId, checkIn.UserId,
             $"{user.FirstName} {user.LastName}",
             checkIn.CheckInTime, checkIn.Latitude, checkIn.Longitude,
-            checkIn.PhotoUrl, checkIn.Notes);
+            checkIn.PhotoUrl, photoUrls, checkIn.Notes);
 
         return ApiResult<JobCheckInDto>.Success(dto);
     }
@@ -193,7 +208,8 @@ public sealed record CheckOutCommand(
     decimal? Longitude,
     string? PhotoUrl,
     string? Notes,
-    string? WorkSummary
+    string? WorkSummary,
+    List<string>? PhotoUrls = null
 ) : IRequest<ApiResult<JobCheckOutDto>>;
 
 public sealed class CheckOutCommandValidator : AbstractValidator<CheckOutCommand>
@@ -227,6 +243,14 @@ public sealed class CheckOutCommandHandler(CleanConnectDbContext dbContext)
         if (user.CleanerProfile is null && user.SupervisorProfile is null)
             return ApiResult<JobCheckOutDto>.Failure($"Only cleaners or supervisors can check out. User role: {user.Role}, HasCleanerProfile: {user.CleanerProfile != null}, HasSupervisorProfile: {user.SupervisorProfile != null}");
 
+        var photoUrls = (request.PhotoUrls ?? new List<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToList();
+        if (photoUrls.Count == 0 && !string.IsNullOrWhiteSpace(request.PhotoUrl))
+        {
+            photoUrls.Add(request.PhotoUrl);
+        }
+
         var now = DateTimeOffset.UtcNow;
         var checkOut = new JobCheckOut
         {
@@ -236,7 +260,8 @@ public sealed class CheckOutCommandHandler(CleanConnectDbContext dbContext)
             CheckOutTime = now,
             Latitude = request.Latitude,
             Longitude = request.Longitude,
-            PhotoUrl = request.PhotoUrl,
+            PhotoUrl = photoUrls.FirstOrDefault(),
+            PhotoUrlsJson = JsonSerializer.Serialize(photoUrls),
             Notes = request.Notes,
             WorkSummary = request.WorkSummary,
             CreatedAt = now
@@ -256,13 +281,17 @@ public sealed class CheckOutCommandHandler(CleanConnectDbContext dbContext)
             OccurredAt = now
         });
 
+        BookingNotifications.Add(dbContext, booking.CustomerProfileId, booking.Id,
+            "Job completed",
+            $"{user.FirstName} {user.LastName} has checked out. Your booking is now complete.");
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var dto = new JobCheckOutDto(
             checkOut.Id, checkOut.BookingId, checkOut.UserId,
             $"{user.FirstName} {user.LastName}",
             checkOut.CheckOutTime, checkOut.Latitude, checkOut.Longitude,
-            checkOut.PhotoUrl, checkOut.Notes, checkOut.WorkSummary);
+            checkOut.PhotoUrl, photoUrls, checkOut.Notes, checkOut.WorkSummary);
 
         return ApiResult<JobCheckOutDto>.Success(dto);
     }

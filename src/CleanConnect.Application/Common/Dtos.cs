@@ -18,7 +18,7 @@ public sealed record ProviderBookingDto(Guid Id, Guid ServiceId, string ServiceN
 
 public sealed record CleanerProfileDto(Guid Id, Guid? ProviderId, EmploymentType EmploymentType, StaffRole StaffRole, string Skills, string ServiceZones, decimal Rating, AccountStatus Status);
 
-public sealed record BookingDto(Guid Id, Guid CustomerProfileId, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt);
+public sealed record BookingDto(Guid Id, Guid CustomerProfileId, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt, bool IsRecurring = false, string? RecurrenceFrequency = null, Guid? RecurrenceGroupId = null, int? RecurrenceIndex = null);
 
 public sealed record BookingDetailDto(
     Guid Id,
@@ -39,7 +39,12 @@ public sealed record BookingDetailDto(
     bool PayOnsite,
     CleaningJobDetailDto? JobDetail,
     List<AssignmentDto> Assignments,
-    List<ServiceMilestoneDto> Milestones
+    List<ServiceMilestoneDto> Milestones,
+    bool IsRecurring = false,
+    string? RecurrenceFrequency = null,
+    Guid? RecurrenceGroupId = null,
+    int? RecurrenceIndex = null,
+    int? RecurrenceCount = null
 );
 
 public sealed record CleaningJobDetailDto(
@@ -89,9 +94,9 @@ public sealed record MembershipPlanDto(Guid Id, string Name, string Description,
 
 public sealed record SupervisorProfileDto(Guid Id, Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, decimal Rating, AccountStatus Status);
 
-public sealed record JobCheckInDto(Guid Id, Guid BookingId, Guid UserId, string UserName, DateTimeOffset CheckInTime, decimal? Latitude, decimal? Longitude, string? PhotoUrl, string? Notes);
+public sealed record JobCheckInDto(Guid Id, Guid BookingId, Guid UserId, string UserName, DateTimeOffset CheckInTime, decimal? Latitude, decimal? Longitude, string? PhotoUrl, List<string> PhotoUrls, string? Notes);
 
-public sealed record JobCheckOutDto(Guid Id, Guid BookingId, Guid UserId, string UserName, DateTimeOffset CheckOutTime, decimal? Latitude, decimal? Longitude, string? PhotoUrl, string? Notes, string? WorkSummary);
+public sealed record JobCheckOutDto(Guid Id, Guid BookingId, Guid UserId, string UserName, DateTimeOffset CheckOutTime, decimal? Latitude, decimal? Longitude, string? PhotoUrl, List<string> PhotoUrls, string? Notes, string? WorkSummary);
 
 public sealed record PostJobReportDto(
     Guid Id,
@@ -108,3 +113,5 @@ public sealed record PostJobReportDto(
 );
 
 public sealed record ChecklistResultDto(string TaskName, bool Completed, string? Notes);
+
+public sealed record NotificationDto(Guid Id, Guid? BookingId, string Title, string Message, string Type, bool IsRead, DateTimeOffset CreatedAt, DateTimeOffset? ReadAt);

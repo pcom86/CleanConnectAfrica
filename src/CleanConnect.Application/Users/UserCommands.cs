@@ -375,7 +375,7 @@ public sealed class GetUserByIdQueryHandler(CleanConnectDbContext dbContext) : I
     }
 }
 
-public sealed record AddCustomerAddressCommand(Guid UserId, string Label, string StreetAddress, string Suburb, string City, string Province, string PostalCode, string? AccessInstructions = null) : IRequest<ApiResult<UserDto>>;
+public sealed record AddCustomerAddressCommand(Guid UserId, string Label, string StreetAddress, string Suburb, string City, string Province, string? PostalCode, string? AccessInstructions = null) : IRequest<ApiResult<UserDto>>;
 
 public sealed class AddCustomerAddressCommandValidator : AbstractValidator<AddCustomerAddressCommand>
 {
@@ -387,7 +387,7 @@ public sealed class AddCustomerAddressCommandValidator : AbstractValidator<AddCu
         RuleFor(x => x.Suburb).NotEmpty().MaximumLength(100);
         RuleFor(x => x.City).NotEmpty().MaximumLength(100);
         RuleFor(x => x.Province).NotEmpty().MaximumLength(100);
-        RuleFor(x => x.PostalCode).NotEmpty().MaximumLength(20);
+        RuleFor(x => x.PostalCode).MaximumLength(20);
     }
 }
 
@@ -416,7 +416,7 @@ public sealed class AddCustomerAddressCommandHandler(CleanConnectDbContext dbCon
             Suburb = request.Suburb.Trim(),
             City = request.City.Trim(),
             Province = request.Province.Trim(),
-            PostalCode = request.PostalCode.Trim(),
+            PostalCode = request.PostalCode?.Trim() ?? "",
             AccessInstructions = request.AccessInstructions,
             CreatedAt = now,
             UpdatedAt = now

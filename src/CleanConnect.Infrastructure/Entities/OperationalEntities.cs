@@ -152,3 +152,19 @@ public sealed class ProviderCommission
     public Provider Provider { get; set; } = null!;
     public Booking Booking { get; set; } = null!;
 }
+
+public sealed class Notification
+{
+    public Guid Id { get; set; }
+    public Guid CustomerProfileId { get; set; }
+    public Guid? BookingId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public string Type { get; set; } = "BookingUpdate";
+    public bool IsRead { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? ReadAt { get; set; }
+
+    public CustomerProfile CustomerProfile { get; set; } = null!;
+    public Booking? Booking { get; set; }
+}

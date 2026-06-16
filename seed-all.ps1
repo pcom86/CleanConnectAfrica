@@ -323,7 +323,7 @@ $eftPayload = @{
 }
 $eftRes = Invoke-ApiPost "/api/v1/cleaning-bookings" $eftPayload
 if ($eftRes.succeeded) {
-    Write-Host "Created EFT Booking    : ID=$($eftRes.data.id) | Status=$($eftRes.data.status) | PayOnsite=$($eftRes.data.payOnsite)" -ForegroundColor Green
+    Write-Host "Created EFT Booking    : ID=$($eftRes.data[0].id) | Status=$($eftRes.data[0].status) | PayOnsite=$($eftRes.data[0].payOnsite)" -ForegroundColor Green
 } else {
     Write-Host "Failed to create EFT booking: $($eftRes.error)" -ForegroundColor Red
 }
@@ -349,7 +349,7 @@ $onsitePayload = @{
 }
 $onsiteRes = Invoke-ApiPost "/api/v1/cleaning-bookings" $onsitePayload
 if ($onsiteRes.succeeded) {
-    Write-Host "Created PayOnsite Booking: ID=$($onsiteRes.data.id) | Status=$($onsiteRes.data.status) | PayOnsite=$($onsiteRes.data.payOnsite)" -ForegroundColor Green
+    Write-Host "Created PayOnsite Booking: ID=$($onsiteRes.data[0].id) | Status=$($onsiteRes.data[0].status) | PayOnsite=$($onsiteRes.data[0].payOnsite)" -ForegroundColor Green
 } else {
     Write-Host "Failed to create Pay Onsite booking: $($onsiteRes.error)" -ForegroundColor Red
 }
@@ -375,8 +375,8 @@ $assignedPayload = @{
 }
 $assignedRes = Invoke-ApiPost "/api/v1/cleaning-bookings" $assignedPayload
 if ($assignedRes.succeeded) {
-    $assignedBookingId = $assignedRes.data.id
-    Write-Host "Created Assigned Booking: ID=$assignedBookingId | Status=$($assignedRes.data.status)" -ForegroundColor Green
+    $assignedBookingId = $assignedRes.data[0].id
+    Write-Host "Created Assigned Booking: ID=$assignedBookingId | Status=$($assignedRes.data[0].status)" -ForegroundColor Green
 
     # Accept the booking
     $acceptPayload = @{ ProviderId = $providerId }
@@ -404,6 +404,100 @@ if ($assignedRes.succeeded) {
     }
 } else {
     Write-Host "Failed to create assigned booking: $($assignedRes.error)" -ForegroundColor Red
+}
+
+# ------------------------------------------------------------------
+# 8b. Create two extra bookings with one-time addresses outside range
+# ------------------------------------------------------------------
+$day3 = (Get-Date).AddDays(3).Date.AddHours(10).ToUniversalTime()
+$scheduledStart4 = $day3.ToString("yyyy-MM-ddTHH:mm:ssZ")
+$scheduledEnd4 = (Get-Date $day3).AddHours(2).ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+$outside1Payload = @{
+    CustomerProfileId = $customerProfileId
+    ServiceId         = $serviceId
+    AddressId         = $null
+    OneTimeAddress    = @{
+        streetAddress = "456 Church Street"
+        suburb        = "Arcadia"
+        city          = "Pretoria"
+        province      = "Gauteng"
+        postalCode    = "0083"
+        label         = "Pretoria Office"
+    }
+    ScheduledStart      = $scheduledStart4
+    ScheduledEnd        = $scheduledEnd4
+    SpecialInstructions = "Outside-range test booking - Pretoria"
+    AccessNotes         = "Front desk"
+    HasPets             = $false
+    ParkingInformation  = "Underground parking"
+    PayOnsite           = $true
+}
+$outside1Res = Invoke-ApiPost "/api/v1/cleaning-bookings" $outside1Payload
+if ($outside1Res.succeeded) {
+    Write-Host "Created Outside-Range Booking 1: ID=$($outside1Res.data[0].id) | Status=$($outside1Res.data[0].status) | City=Pretoria" -ForegroundColor Green
+} else {
+    Write-Host "Failed to create outside-range booking 1: $($outside1Res.error)" -ForegroundColor Red
+}
+
+$day4 = (Get-Date).AddDays(4).Date.AddHours(14).ToUniversalTime()
+$scheduledStart5 = $day4.ToString("yyyy-MM-ddTHH:mm:ssZ")
+$scheduledEnd5 = (Get-Date $day4).AddHours(2).ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+$outside2Payload = @{
+    CustomerProfileId = $customerProfileId
+    ServiceId         = $serviceId
+    AddressId         = $null
+    OneTimeAddress    = @{
+        streetAddress = "78 Marine Parade"
+        suburb        = "North Beach"
+        city          = "Durban"
+        province      = "KwaZulu-Natal"
+        postalCode    = "4006"
+        label         = "Durban Beachfront"
+    }
+    ScheduledStart      = $scheduledStart5
+    ScheduledEnd        = $scheduledEnd5
+    SpecialInstructions = "Outside-range test booking - Durban"
+    AccessNotes         = "Reception"
+    HasPets             = $true
+    ParkingInformation  = "Street parking"
+    PayOnsite           = $false
+}
+$outside2Res = Invoke-ApiPost "/api/v1/cleaning-bookings" $outside2Payload
+if ($outside2Res.succeeded) {
+    Write-Host "Created Outside-Range Booking 2: ID=$($outside2Res.data[0].id) | Status=$($outside2Res.data[0].status) | City=Durban" -ForegroundColor Green
+} else {
+    Write-Host "Failed to create outside-range booking 2: $($outside2Res.error)" -ForegroundColor Red
+}
+
+# ------------------------------------------------------------------
+# 8c. Create Recurring Booking (weekly, 4 occurrences)
+# ------------------------------------------------------------------
+$day5 = (Get-Date).AddDays(5).Date.AddHours(9).ToUniversalTime()
+$recurringStart = $day5.ToString("yyyy-MM-ddTHH:mm:ssZ")
+$recurringEnd = (Get-Date $day5).AddHours(2).ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+$recurringPayload = @{
+    CustomerProfileId  = $customerProfileId
+    ServiceId          = $serviceId
+    AddressId          = $addressId
+    ScheduledStart     = $recurringStart
+    ScheduledEnd       = $recurringEnd
+    SpecialInstructions = "Weekly recurring cleaning service"
+    AccessNotes        = "Please use the side entrance"
+    HasPets            = $false
+    ParkingInformation = "Driveway"
+    PayOnsite          = $false
+    RecurrenceFrequency = "Weekly"
+    RecurrenceCount    = 4
+}
+$recurringRes = Invoke-ApiPost "/api/v1/cleaning-bookings" $recurringPayload
+if ($recurringRes.succeeded) {
+    $recurringIds = $recurringRes.data | ForEach-Object { $_.id }
+    Write-Host "Created Recurring Booking: $($recurringRes.data.Length) occurrences | IDs=$($recurringIds -join ', ') | Frequency=Weekly" -ForegroundColor Green
+} else {
+    Write-Host "Failed to create recurring booking: $($recurringRes.error)" -ForegroundColor Red
 }
 
 # ------------------------------------------------------------------
@@ -440,20 +534,20 @@ Write-Host "   Supervisor: Sipho Ndlovu  |  supervisor1@spotless.co.za  |  Passw
 
 if ($eftRes.succeeded) {
     Write-Host "`n💳 EFT PAYMENT BOOKING" -ForegroundColor Cyan
-    Write-Host "   Booking ID : $($eftRes.data.id)" -ForegroundColor White
-    Write-Host "   Service    : $($eftRes.data.serviceName)" -ForegroundColor White
-    Write-Host "   Status     : $($eftRes.data.status)" -ForegroundColor White
-    Write-Host "   PayOnsite  : $($eftRes.data.payOnsite)" -ForegroundColor White
-    Write-Host "   Price      : R$($eftRes.data.price) $($eftRes.data.currency)" -ForegroundColor White
+    Write-Host "   Booking ID : $($eftRes.data[0].id)" -ForegroundColor White
+    Write-Host "   Service    : $($eftRes.data[0].serviceName)" -ForegroundColor White
+    Write-Host "   Status     : $($eftRes.data[0].status)" -ForegroundColor White
+    Write-Host "   PayOnsite  : $($eftRes.data[0].payOnsite)" -ForegroundColor White
+    Write-Host "   Price      : R$($eftRes.data[0].price) $($eftRes.data[0].currency)" -ForegroundColor White
 }
 
 if ($onsiteRes.succeeded) {
     Write-Host "`n💰 PAY ONSITE BOOKING" -ForegroundColor Cyan
-    Write-Host "   Booking ID : $($onsiteRes.data.id)" -ForegroundColor White
-    Write-Host "   Service    : $($onsiteRes.data.serviceName)" -ForegroundColor White
-    Write-Host "   Status     : $($onsiteRes.data.status)" -ForegroundColor White
-    Write-Host "   PayOnsite  : $($onsiteRes.data.payOnsite)" -ForegroundColor White
-    Write-Host "   Price      : R$($onsiteRes.data.price) $($onsiteRes.data.currency)" -ForegroundColor White
+    Write-Host "   Booking ID : $($onsiteRes.data[0].id)" -ForegroundColor White
+    Write-Host "   Service    : $($onsiteRes.data[0].serviceName)" -ForegroundColor White
+    Write-Host "   Status     : $($onsiteRes.data[0].status)" -ForegroundColor White
+    Write-Host "   PayOnsite  : $($onsiteRes.data[0].payOnsite)" -ForegroundColor White
+    Write-Host "   Price      : R$($onsiteRes.data[0].price) $($onsiteRes.data[0].currency)" -ForegroundColor White
 }
 
 if ($assignedRes.succeeded) {
@@ -462,6 +556,29 @@ if ($assignedRes.succeeded) {
     Write-Host "   Service    : $serviceName" -ForegroundColor White
     Write-Host "   Status     : Accepted & Assigned" -ForegroundColor White
     Write-Host "   Team       : 2 Cleaners + 1 Supervisor" -ForegroundColor White
+}
+
+if ($outside1Res.succeeded) {
+    Write-Host "`n🌍 OUTSIDE-RANGE BOOKING 1" -ForegroundColor Cyan
+    Write-Host "   Booking ID : $($outside1Res.data[0].id)" -ForegroundColor White
+    Write-Host "   Service    : $($outside1Res.data[0].serviceName)" -ForegroundColor White
+    Write-Host "   Status     : $($outside1Res.data[0].status)" -ForegroundColor White
+    Write-Host "   City       : Pretoria (outside 25 km radius)" -ForegroundColor White
+}
+
+if ($outside2Res.succeeded) {
+    Write-Host "`n🌍 OUTSIDE-RANGE BOOKING 2" -ForegroundColor Cyan
+    Write-Host "   Booking ID : $($outside2Res.data[0].id)" -ForegroundColor White
+    Write-Host "   Service    : $($outside2Res.data[0].serviceName)" -ForegroundColor White
+    Write-Host "   Status     : $($outside2Res.data[0].status)" -ForegroundColor White
+    Write-Host "   City       : Durban (outside 25 km radius)" -ForegroundColor White
+}
+
+if ($recurringRes.succeeded) {
+    Write-Host "`n🔄 RECURRING BOOKING (Weekly, 4 occurrences)" -ForegroundColor Cyan
+    foreach ($b in $recurringRes.data) {
+        Write-Host "   Booking ID : $($b.id) | $($b.scheduledStart) | Status=$($b.status)" -ForegroundColor White
+    }
 }
 
 Write-Host "`n============================================================" -ForegroundColor Yellow

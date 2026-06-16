@@ -3,6 +3,7 @@ using System;
 using CleanConnect.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CleanConnect.Infrastructure.Migrations
 {
     [DbContext(typeof(CleanConnectDbContext))]
-    partial class CleanConnectDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260615122224_AddNotificationsAndMultiPhoto")]
+    partial class AddNotificationsAndMultiPhoto
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -162,32 +165,8 @@ namespace CleanConnect.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
-                    b.Property<string>("AddressCity")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<Guid?>("AddressId")
+                    b.Property<Guid>("AddressId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("AddressLabel")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("AddressPostalCode")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<string>("AddressProvince")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("AddressStreet")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
-
-                    b.Property<string>("AddressSuburb")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -201,9 +180,6 @@ namespace CleanConnect.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<bool>("HasPets")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsRecurring")
                         .HasColumnType("boolean");
 
                     b.Property<string>("ParkingInformation")
@@ -221,16 +197,6 @@ namespace CleanConnect.Infrastructure.Migrations
                     b.Property<decimal>("Price")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)");
-
-                    b.Property<string>("RecurrenceFrequency")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
-                    b.Property<Guid?>("RecurrenceGroupId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int?>("RecurrenceIndex")
-                        .HasColumnType("integer");
 
                     b.Property<DateTimeOffset>("ScheduledEnd")
                         .HasColumnType("timestamp with time zone");
@@ -258,8 +224,6 @@ namespace CleanConnect.Infrastructure.Migrations
                     b.HasIndex("AddressId");
 
                     b.HasIndex("PaymentStatus");
-
-                    b.HasIndex("RecurrenceGroupId");
 
                     b.HasIndex("ScheduledStart");
 
@@ -1711,7 +1675,8 @@ namespace CleanConnect.Infrastructure.Migrations
                     b.HasOne("CleanConnect.Infrastructure.Entities.Address", "Address")
                         .WithMany("Bookings")
                         .HasForeignKey("AddressId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("CleanConnect.Infrastructure.Entities.CustomerProfile", "CustomerProfile")
                         .WithMany("Bookings")

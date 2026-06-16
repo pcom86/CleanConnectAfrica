@@ -109,15 +109,25 @@ public sealed class GetBookingByIdQueryHandler(CleanConnectDbContext dbContext) 
             .Select(m => new ServiceMilestoneDto(m.MilestoneType, m.Status, m.Notes, m.OccurredAt))
             .ToList();
 
+        int? recurrenceCount = null;
+        if (booking.IsRecurring && booking.RecurrenceGroupId.HasValue)
+        {
+            recurrenceCount = await dbContext.Bookings
+                .AsNoTracking()
+                .CountAsync(x => x.RecurrenceGroupId == booking.RecurrenceGroupId, cancellationToken);
+        }
+
         var dto = new BookingDetailDto(
             booking.Id,
             booking.CustomerProfileId,
             booking.ServiceId,
             booking.Service?.Name ?? "",
             booking.Service?.Category ?? "",
-            booking.AddressId,
-            booking.Address?.Label ?? "",
-            $"{booking.Address?.StreetAddress}, {booking.Address?.Suburb}, {booking.Address?.City}",
+            booking.AddressId ?? Guid.Empty,
+            booking.Address?.Label ?? booking.AddressLabel ?? "",
+            booking.Address != null
+                ? $"{booking.Address.StreetAddress}, {booking.Address.Suburb}, {booking.Address.City}"
+                : $"{booking.AddressStreet}, {booking.AddressSuburb}, {booking.AddressCity}",
             booking.ScheduledStart,
             booking.ScheduledEnd,
             booking.Status,
@@ -128,7 +138,12 @@ public sealed class GetBookingByIdQueryHandler(CleanConnectDbContext dbContext) 
             booking.PayOnsite,
             jobDetail,
             assignments,
-            milestones
+            milestones,
+            booking.IsRecurring,
+            booking.RecurrenceFrequency,
+            booking.RecurrenceGroupId,
+            booking.RecurrenceIndex,
+            recurrenceCount
         );
 
         return ApiResult<BookingDetailDto>.Success(dto);

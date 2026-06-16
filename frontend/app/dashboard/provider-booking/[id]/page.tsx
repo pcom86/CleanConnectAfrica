@@ -49,6 +49,10 @@ export default function ProviderBookingDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [providerId, setProviderId] = useState<string | null>(null);
 
+  // Accept scope for recurring bookings
+  const [acceptScope, setAcceptScope] = useState<"Single" | "AllInSeries">("Single");
+  const [showAcceptOptions, setShowAcceptOptions] = useState(false);
+
   // Completion form
   const [showCompleteForm, setShowCompleteForm] = useState(false);
   const [afterPhotos, setAfterPhotos] = useState("");
@@ -95,13 +99,14 @@ export default function ProviderBookingDetailPage() {
     }
   }
 
-  async function handleAccept() {
+  async function handleAccept(scope: "Single" | "AllInSeries" = "Single") {
     if (!providerId) return;
     setActionLoading(true);
     setError(null);
     try {
-      const res = await acceptBooking(bookingId, providerId);
+      const res = await acceptBooking(bookingId, providerId, scope);
       if (res.succeeded && res.data) {
+        setShowAcceptOptions(false);
         await loadData();
       } else {
         setError(res.error ?? "Failed to accept booking.");
@@ -202,11 +207,13 @@ export default function ProviderBookingDetailPage() {
 
   function getNextAction() {
     if (!booking) return null;
-    const status = booking.payOnsite && booking.status === "Confirmed" ? "PayOnsite" : booking.status;
     switch (booking.status) {
       case "Confirmed":
       case "PendingPayment":
-        return { label: "Accept Job", action: handleAccept, color: "bg-brand-green text-white hover:bg-brand-green-dark" };
+        if (booking.isRecurring && booking.recurrenceGroupId) {
+          return { label: "Accept Job", action: null, color: "bg-brand-green text-white hover:bg-brand-green-dark", isRecurring: true as const };
+        }
+        return { label: "Accept Job", action: () => handleAccept("Single"), color: "bg-brand-green text-white hover:bg-brand-green-dark" };
       case "Assigned":
         return { label: "Assign Team", action: null, color: "bg-amber-600 text-white hover:bg-amber-700", isDispatch: true };
       case "CleanerEnRoute":
@@ -256,8 +263,26 @@ export default function ProviderBookingDetailPage() {
 
         {/* Booking Info */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">{booking.serviceName}</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{booking.serviceName}</h1>
+            {booking.isRecurring && booking.recurrenceFrequency && (
+              <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-medium rounded-full">
+                {booking.recurrenceFrequency}
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{booking.serviceCategory}</p>
+          {booking.isRecurring && booking.recurrenceCount && booking.recurrenceCount > 1 && (
+            <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+              <p className="text-sm font-medium text-purple-800 dark:text-purple-300">
+                Recurring Booking — {booking.recurrenceCount} occurrences
+                {booking.recurrenceIndex ? ` (Occurrence ${booking.recurrenceIndex} of ${booking.recurrenceCount})` : ""}
+              </p>
+              <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                Unit price: R{booking.price.toFixed(2)} × {booking.recurrenceCount} = Total: R{(booking.price * booking.recurrenceCount).toFixed(2)}
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
@@ -277,6 +302,9 @@ export default function ProviderBookingDetailPage() {
             <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
               <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide">Price</p>
               <p className="text-lg font-bold text-brand-green mt-1">R{booking.price.toFixed(2)}</p>
+              {booking.isRecurring && booking.recurrenceCount && booking.recurrenceCount > 1 && (
+                <p className="text-xs text-brand-green font-medium">× {booking.recurrenceCount} = R{(booking.price * booking.recurrenceCount).toFixed(2)} total</p>
+              )}
               <p className="text-xs text-gray-400 dark:text-gray-500">{booking.currency}</p>
             </div>
             <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
@@ -462,6 +490,51 @@ export default function ProviderBookingDetailPage() {
                     </div>
                   );
                 })()}
+              </div>
+            ) : nextAction.isRecurring ? (
+              <div className="space-y-3">
+                {!showAcceptOptions ? (
+                  <button
+                    onClick={() => setShowAcceptOptions(true)}
+                    disabled={actionLoading}
+                    className={`w-full py-3 rounded-xl font-semibold transition-colors disabled:opacity-50 ${nextAction.color}`}
+                  >
+                    {actionLoading ? "Processing…" : nextAction.label}
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                      <p className="text-sm font-medium text-purple-800 dark:text-purple-300">Recurring Booking — {booking.recurrenceCount} occurrences</p>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                        Unit: R{booking.price.toFixed(2)} × {booking.recurrenceCount} = <span className="font-semibold">R{(booking.price * (booking.recurrenceCount ?? 1)).toFixed(2)} total</span>
+                      </p>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">Accept:</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => handleAccept("Single")}
+                        disabled={actionLoading}
+                        className="py-3 px-4 rounded-xl border-2 border-brand-green bg-white dark:bg-gray-800 text-brand-green font-semibold hover:bg-brand-green-light dark:hover:bg-green-900/20 transition-colors disabled:opacity-50 text-sm"
+                      >
+                        {actionLoading ? "…" : `This occurrence only (R${booking.price.toFixed(2)})`}
+                      </button>
+                      <button
+                        onClick={() => handleAccept("AllInSeries")}
+                        disabled={actionLoading}
+                        className="py-3 px-4 rounded-xl bg-brand-green text-white font-semibold hover:bg-brand-green-dark transition-colors disabled:opacity-50 text-sm"
+                      >
+                        {actionLoading ? "…" : `Entire series (R${(booking.price * (booking.recurrenceCount ?? 1)).toFixed(2)})`}
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setShowAcceptOptions(false)}
+                      disabled={actionLoading}
+                      className="w-full py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <button

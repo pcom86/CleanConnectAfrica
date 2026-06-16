@@ -57,4 +57,4 @@ public sealed class UsersController(ISender sender) : ControllerBase
 
 public sealed record UpdateStatusRequest(AccountStatus Status);
 
-public sealed record AddCustomerAddressRequest(string Label, string StreetAddress, string Suburb, string City, string Province, string PostalCode, string? AccessInstructions);
+public sealed record AddCustomerAddressRequest(string Label, string StreetAddress, string Suburb, string City, string Province, string? PostalCode, string? AccessInstructions);

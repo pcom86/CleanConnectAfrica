@@ -1,4 +1,5 @@
 using CleanConnect.Application.Common;
+using CleanConnect.Application.Notifications;
 using CleanConnect.Infrastructure;
 using CleanConnect.Infrastructure.Entities;
 using FluentValidation;
@@ -106,6 +107,8 @@ public sealed class UpdateLaundryStatusCommandHandler(CleanConnectDbContext dbCo
         detail.Booking.UpdatedAt = now;
 
         dbContext.ServiceMilestones.Add(new ServiceMilestone { Id = Guid.NewGuid(), BookingId = detail.BookingId, MilestoneType = "Laundry", Status = request.Status.ToString(), Notes = request.Notes, OccurredAt = now });
+        BookingNotifications.Add(dbContext, detail.Booking.CustomerProfileId, detail.BookingId,
+            "Laundry update", $"Your laundry order is now {request.Status}.");
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResult<LaundryBookingDto>.Success(new LaundryBookingDto(detail.BookingId, detail.Id, detail.LaundryStatus, detail.PackageType, detail.EstimatedWeightKg, detail.ActualWeightKg, detail.PickupWindowStart, detail.PickupWindowEnd));

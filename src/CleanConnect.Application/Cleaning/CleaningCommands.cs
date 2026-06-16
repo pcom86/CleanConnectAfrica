@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CleanConnect.Application.Common;
+using CleanConnect.Application.Notifications;
 using CleanConnect.Infrastructure;
 using CleanConnect.Infrastructure.Entities;
 using FluentValidation;
@@ -159,7 +160,7 @@ public sealed class AcceptCleaningRequestCommandHandler(CleanConnectDbContext db
             Id = Guid.NewGuid(),
             CustomerProfileId = cleaningRequest.CustomerProfileId,
             ServiceId = cleaningRequest.ServiceId ?? Guid.Empty,
-            AddressId = cleaningRequest.AddressId ?? Guid.Empty,
+            AddressId = cleaningRequest.AddressId,
             ScheduledStart = scheduledStart,
             ScheduledEnd = scheduledEnd,
             Status = BookingStatus.Confirmed,
@@ -191,7 +192,7 @@ public sealed class AcceptCleaningRequestCommandHandler(CleanConnectDbContext db
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, cleaningRequest.Service?.Name ?? "", cleaningRequest.Service?.Category ?? "", booking.AddressId, cleaningRequest.Address?.Label ?? "", $"{cleaningRequest.Address?.StreetAddress}, {cleaningRequest.Address?.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
+        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, cleaningRequest.Service?.Name ?? "", cleaningRequest.Service?.Category ?? "", booking.AddressId ?? Guid.Empty, cleaningRequest.Address?.Label ?? "", $"{cleaningRequest.Address?.StreetAddress}, {cleaningRequest.Address?.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
     }
 }
 
@@ -266,9 +267,13 @@ public sealed class UpdateCleaningBookingStatusCommandHandler(CleanConnectDbCont
             OccurredAt = now
         });
 
+        BookingNotifications.Add(dbContext, booking.CustomerProfileId, booking.Id,
+            "Booking update",
+            BookingNotifications.DescribeStatus(request.NewStatus, booking.Service?.Name));
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId, booking.Address?.Label ?? "", $"{booking.Address?.StreetAddress}, {booking.Address?.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
+        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId ?? Guid.Empty, booking.Address?.Label ?? booking.AddressLabel ?? "", booking.Address != null ? $"{booking.Address.StreetAddress}, {booking.Address.Suburb}" : $"{booking.AddressStreet}, {booking.AddressSuburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
     }
 }
 
@@ -351,6 +356,10 @@ public sealed class CompleteCleaningCommandHandler(CleanConnectDbContext dbConte
             OccurredAt = now
         });
 
+        BookingNotifications.Add(dbContext, booking.CustomerProfileId, booking.Id,
+            "Job completed",
+            BookingNotifications.DescribeStatus(BookingStatus.Completed, booking.Service?.Name));
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return ApiResult<CleaningReportDto>.Success(new CleaningReportDto(
@@ -364,7 +373,10 @@ public sealed class CompleteCleaningCommandHandler(CleanConnectDbContext dbConte
 }
 
 // --- Legacy: Direct Booking Creation ---
-public sealed record CreateCleaningBookingCommand(Guid CustomerProfileId, Guid ServiceId, Guid AddressId, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, string? SpecialInstructions, string? AccessNotes, bool HasPets, string? ParkingInformation, bool PayOnsite = false) : IRequest<ApiResult<BookingDto>>;
+// A one-time service address captured on the booking that is NOT persisted to the customer's saved addresses.
+public sealed record OneTimeAddressRequest(string StreetAddress, string Suburb, string City, string Province, string? PostalCode = null, string? Label = null);
+
+public sealed record CreateCleaningBookingCommand(Guid CustomerProfileId, Guid ServiceId, Guid? AddressId, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, string? SpecialInstructions, string? AccessNotes, bool HasPets, string? ParkingInformation, bool PayOnsite = false, OneTimeAddressRequest? OneTimeAddress = null, string? RecurrenceFrequency = null, int RecurrenceCount = 1) : IRequest<ApiResult<List<BookingDto>>>;
 
 public sealed class CreateCleaningBookingCommandValidator : AbstractValidator<CreateCleaningBookingCommand>
 {
@@ -372,59 +384,140 @@ public sealed class CreateCleaningBookingCommandValidator : AbstractValidator<Cr
     {
         RuleFor(x => x.CustomerProfileId).NotEmpty();
         RuleFor(x => x.ServiceId).NotEmpty();
-        RuleFor(x => x.AddressId).NotEmpty();
         RuleFor(x => x.ScheduledEnd).GreaterThan(x => x.ScheduledStart);
+        RuleFor(x => x)
+            .Must(x => (x.AddressId.HasValue && x.AddressId.Value != Guid.Empty) || x.OneTimeAddress is not null)
+            .WithMessage("Either a saved address or a one-time address must be provided.");
+        When(x => x.OneTimeAddress is not null, () =>
+        {
+            RuleFor(x => x.OneTimeAddress!.StreetAddress).NotEmpty().MaximumLength(255);
+            RuleFor(x => x.OneTimeAddress!.Suburb).NotEmpty().MaximumLength(100);
+            RuleFor(x => x.OneTimeAddress!.City).NotEmpty().MaximumLength(100);
+            RuleFor(x => x.OneTimeAddress!.Province).NotEmpty().MaximumLength(100);
+        });
+        RuleFor(x => x.RecurrenceCount).InclusiveBetween(1, 12);
+        When(x => !string.IsNullOrWhiteSpace(x.RecurrenceFrequency), () =>
+        {
+            RuleFor(x => x.RecurrenceFrequency)
+                .Must(f => f is "Weekly" or "BiWeekly" or "Monthly")
+                .WithMessage("Recurrence frequency must be Weekly, BiWeekly, or Monthly.");
+        });
     }
 }
 
-public sealed class CreateCleaningBookingCommandHandler(CleanConnectDbContext dbContext) : IRequestHandler<CreateCleaningBookingCommand, ApiResult<BookingDto>>
+public sealed class CreateCleaningBookingCommandHandler(CleanConnectDbContext dbContext) : IRequestHandler<CreateCleaningBookingCommand, ApiResult<List<BookingDto>>>
 {
-    public async Task<ApiResult<BookingDto>> Handle(CreateCleaningBookingCommand request, CancellationToken cancellationToken)
+    public async Task<ApiResult<List<BookingDto>>> Handle(CreateCleaningBookingCommand request, CancellationToken cancellationToken)
     {
         var service = await dbContext.Services.SingleOrDefaultAsync(x => x.Id == request.ServiceId && x.IsActive, cancellationToken);
         if (service is null)
         {
-            return ApiResult<BookingDto>.Failure("Service was not found or is inactive.");
+            return ApiResult<List<BookingDto>>.Failure("Service was not found or is inactive.");
         }
 
-        var address = await dbContext.Addresses.SingleOrDefaultAsync(x => x.Id == request.AddressId && x.CustomerProfileId == request.CustomerProfileId, cancellationToken);
-        if (address is null)
+        string addressLabel;
+        string addressSummary;
+        Guid? addressId = null;
+
+        if (request.AddressId.HasValue && request.AddressId.Value != Guid.Empty)
         {
-            return ApiResult<BookingDto>.Failure("Address was not found for the customer.");
+            var address = await dbContext.Addresses.SingleOrDefaultAsync(x => x.Id == request.AddressId.Value && x.CustomerProfileId == request.CustomerProfileId, cancellationToken);
+            if (address is null)
+            {
+                return ApiResult<List<BookingDto>>.Failure("Address was not found for the customer.");
+            }
+            addressId = address.Id;
+            addressLabel = address.Label;
+            addressSummary = $"{address.StreetAddress}, {address.Suburb}";
+        }
+        else if (request.OneTimeAddress is not null)
+        {
+            var ot = request.OneTimeAddress;
+            addressLabel = string.IsNullOrWhiteSpace(ot.Label) ? "Service address" : ot.Label.Trim();
+            addressSummary = $"{ot.StreetAddress.Trim()}, {ot.Suburb.Trim()}";
+        }
+        else
+        {
+            return ApiResult<List<BookingDto>>.Failure("Either a saved address or a one-time address must be provided.");
         }
 
+        var count = Math.Clamp(request.RecurrenceCount, 1, 12);
+        var isRecurring = count > 1 && !string.IsNullOrWhiteSpace(request.RecurrenceFrequency);
+        var groupId = isRecurring ? Guid.NewGuid() : (Guid?)null;
+        var results = new List<BookingDto>();
         var now = DateTimeOffset.UtcNow;
-        var booking = new Booking
+
+        for (int i = 0; i < count; i++)
         {
-            Id = Guid.NewGuid(),
-            CustomerProfileId = request.CustomerProfileId,
-            ServiceId = request.ServiceId,
-            AddressId = request.AddressId,
-            ScheduledStart = request.ScheduledStart,
-            ScheduledEnd = request.ScheduledEnd,
-            Status = request.PayOnsite ? BookingStatus.Confirmed : BookingStatus.PendingPayment,
-            PaymentStatus = PaymentStatus.Pending,
-            Price = service.BasePrice,
-            Currency = "ZAR",
-            SpecialInstructions = request.SpecialInstructions,
-            AccessNotes = request.AccessNotes,
-            HasPets = request.HasPets,
-            ParkingInformation = request.ParkingInformation,
-            PayOnsite = request.PayOnsite,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
+            var offset = GetDateOffset(request.RecurrenceFrequency, i);
+            var start = request.ScheduledStart.Add(offset);
+            var end = request.ScheduledEnd.Add(offset);
 
-        dbContext.Bookings.Add(booking);
-        dbContext.ServiceMilestones.Add(new ServiceMilestone { Id = Guid.NewGuid(), BookingId = booking.Id, MilestoneType = service.Category, Status = booking.Status.ToString(), OccurredAt = now });
+            var booking = new Booking
+            {
+                Id = Guid.NewGuid(),
+                CustomerProfileId = request.CustomerProfileId,
+                ServiceId = request.ServiceId,
+                ScheduledStart = start,
+                ScheduledEnd = end,
+                Status = request.PayOnsite ? BookingStatus.Confirmed : BookingStatus.PendingPayment,
+                PaymentStatus = PaymentStatus.Pending,
+                Price = service.BasePrice,
+                Currency = "ZAR",
+                SpecialInstructions = request.SpecialInstructions,
+                AccessNotes = request.AccessNotes,
+                HasPets = request.HasPets,
+                ParkingInformation = request.ParkingInformation,
+                PayOnsite = request.PayOnsite,
+                CreatedAt = now,
+                UpdatedAt = now,
+                IsRecurring = isRecurring,
+                RecurrenceGroupId = groupId,
+                RecurrenceFrequency = isRecurring ? request.RecurrenceFrequency : null,
+                RecurrenceIndex = isRecurring ? i + 1 : null
+            };
+
+            if (addressId.HasValue)
+            {
+                booking.AddressId = addressId.Value;
+            }
+            else if (request.OneTimeAddress is not null)
+            {
+                var ot = request.OneTimeAddress;
+                booking.AddressLabel = string.IsNullOrWhiteSpace(ot.Label) ? "Service address" : ot.Label.Trim();
+                booking.AddressStreet = ot.StreetAddress.Trim();
+                booking.AddressSuburb = ot.Suburb.Trim();
+                booking.AddressCity = ot.City.Trim();
+                booking.AddressProvince = ot.Province.Trim();
+                booking.AddressPostalCode = ot.PostalCode?.Trim();
+            }
+
+            dbContext.Bookings.Add(booking);
+            dbContext.ServiceMilestones.Add(new ServiceMilestone { Id = Guid.NewGuid(), BookingId = booking.Id, MilestoneType = service.Category, Status = booking.Status.ToString(), OccurredAt = now });
+            results.Add(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, service.Name, service.Category, booking.AddressId ?? Guid.Empty, addressLabel, addressSummary, booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt, booking.IsRecurring, booking.RecurrenceFrequency, booking.RecurrenceGroupId, booking.RecurrenceIndex));
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
+        return ApiResult<List<BookingDto>>.Success(results);
+    }
 
-        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, service.Name, service.Category, booking.AddressId, address.Label, $"{address.StreetAddress}, {address.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
+    private static TimeSpan GetDateOffset(string? frequency, int index)
+    {
+        if (string.IsNullOrWhiteSpace(frequency) || index == 0) return TimeSpan.Zero;
+        return frequency switch
+        {
+            "Weekly" => TimeSpan.FromDays(7 * index),
+            "BiWeekly" => TimeSpan.FromDays(14 * index),
+            "Monthly" => TimeSpan.FromDays(30 * index), // Approximate; for precision use AddMonths in loop
+            _ => TimeSpan.Zero
+        };
     }
 }
 
 // --- Provider Accept Booking ---
-public sealed record AcceptBookingCommand(Guid BookingId, Guid ProviderId) : IRequest<ApiResult<BookingDto>>;
+public enum AcceptBookingScope { Single, Selected, AllInSeries }
+
+public sealed record AcceptBookingCommand(Guid BookingId, Guid ProviderId, AcceptBookingScope Scope = AcceptBookingScope.Single, List<Guid>? SelectedBookingIds = null) : IRequest<ApiResult<List<BookingDto>>>;
 
 public sealed class AcceptBookingCommandValidator : AbstractValidator<AcceptBookingCommand>
 {
@@ -432,83 +525,117 @@ public sealed class AcceptBookingCommandValidator : AbstractValidator<AcceptBook
     {
         RuleFor(x => x.BookingId).NotEmpty();
         RuleFor(x => x.ProviderId).NotEmpty();
+        When(x => x.Scope == AcceptBookingScope.Selected, () =>
+        {
+            RuleFor(x => x.SelectedBookingIds).NotNull().Must(ids => ids!.Count > 0).WithMessage("At least one booking must be selected.");
+        });
     }
 }
 
-public sealed class AcceptBookingCommandHandler(CleanConnectDbContext dbContext) : IRequestHandler<AcceptBookingCommand, ApiResult<BookingDto>>
+public sealed class AcceptBookingCommandHandler(CleanConnectDbContext dbContext) : IRequestHandler<AcceptBookingCommand, ApiResult<List<BookingDto>>>
 {
-    public async Task<ApiResult<BookingDto>> Handle(AcceptBookingCommand request, CancellationToken cancellationToken)
+    public async Task<ApiResult<List<BookingDto>>> Handle(AcceptBookingCommand request, CancellationToken cancellationToken)
     {
-        var booking = await dbContext.Bookings
+        var primaryBooking = await dbContext.Bookings
             .Include(x => x.Service)
             .Include(x => x.Address)
             .SingleOrDefaultAsync(x => x.Id == request.BookingId, cancellationToken);
 
-        if (booking is null)
-            return ApiResult<BookingDto>.Failure("Booking was not found.");
-
-        if (booking.Status != BookingStatus.Confirmed && booking.Status != BookingStatus.PendingPayment)
-            return ApiResult<BookingDto>.Failure("Booking cannot be accepted in its current status.");
+        if (primaryBooking is null)
+            return ApiResult<List<BookingDto>>.Failure("Booking was not found.");
 
         var provider = await dbContext.Providers.SingleOrDefaultAsync(x => x.Id == request.ProviderId && x.IsEligibleForBookings, cancellationToken);
         if (provider is null)
-            return ApiResult<BookingDto>.Failure("Provider was not found or is not eligible for bookings.");
+            return ApiResult<List<BookingDto>>.Failure("Provider was not found or is not eligible for bookings.");
 
+        // Determine which bookings to accept
+        var bookingIdsToAccept = new List<Guid> { request.BookingId };
+        if (request.Scope == AcceptBookingScope.AllInSeries && primaryBooking.RecurrenceGroupId.HasValue)
+        {
+            var seriesIds = await dbContext.Bookings
+                .AsNoTracking()
+                .Where(x => x.RecurrenceGroupId == primaryBooking.RecurrenceGroupId && (x.Status == BookingStatus.Confirmed || x.Status == BookingStatus.PendingPayment))
+                .Select(x => x.Id)
+                .ToListAsync(cancellationToken);
+            bookingIdsToAccept = seriesIds;
+        }
+        else if (request.Scope == AcceptBookingScope.Selected && request.SelectedBookingIds is { Count: > 0 })
+        {
+            bookingIdsToAccept = request.SelectedBookingIds.Distinct().ToList();
+        }
+
+        var results = new List<BookingDto>();
         var now = DateTimeOffset.UtcNow;
 
-        // Update booking status to Assigned
-        booking.Status = BookingStatus.Assigned;
-        booking.UpdatedAt = now;
-
-        // Create or update assignment
-        var assignment = await dbContext.Assignments.SingleOrDefaultAsync(x => x.BookingId == request.BookingId, cancellationToken);
-        if (assignment is null)
+        foreach (var bookingId in bookingIdsToAccept)
         {
-            assignment = new Assignment
+            var booking = await dbContext.Bookings
+                .Include(x => x.Service)
+                .Include(x => x.Address)
+                .SingleOrDefaultAsync(x => x.Id == bookingId, cancellationToken);
+
+            if (booking is null || (booking.Status != BookingStatus.Confirmed && booking.Status != BookingStatus.PendingPayment))
+                continue;
+
+            booking.Status = BookingStatus.Assigned;
+            booking.UpdatedAt = now;
+
+            var assignment = await dbContext.Assignments.SingleOrDefaultAsync(x => x.BookingId == bookingId, cancellationToken);
+            if (assignment is null)
+            {
+                assignment = new Assignment
+                {
+                    Id = Guid.NewGuid(),
+                    BookingId = booking.Id,
+                    AssignedType = AssignmentType.MarketplaceProvider,
+                    ProviderId = provider.Id,
+                    Status = AssignmentStatus.Accepted,
+                    AssignedAt = now,
+                    AcceptedAt = now
+                };
+                dbContext.Assignments.Add(assignment);
+            }
+            else
+            {
+                assignment.ProviderId = provider.Id;
+                assignment.Status = AssignmentStatus.Accepted;
+                assignment.AcceptedAt = now;
+            }
+
+            if (booking.CleaningJobDetail is null)
+            {
+                booking.CleaningJobDetail = new CleaningJobDetail
+                {
+                    Id = Guid.NewGuid(),
+                    BookingId = booking.Id,
+                    CleaningType = "Standard",
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+                dbContext.CleaningJobDetails.Add(booking.CleaningJobDetail);
+            }
+
+            dbContext.ServiceMilestones.Add(new ServiceMilestone
             {
                 Id = Guid.NewGuid(),
                 BookingId = booking.Id,
-                AssignedType = AssignmentType.MarketplaceProvider,
-                ProviderId = provider.Id,
-                Status = AssignmentStatus.Accepted,
-                AssignedAt = now,
-                AcceptedAt = now
-            };
-            dbContext.Assignments.Add(assignment);
-        }
-        else
-        {
-            assignment.ProviderId = provider.Id;
-            assignment.Status = AssignmentStatus.Accepted;
-            assignment.AcceptedAt = now;
+                MilestoneType = "BookingAccepted",
+                Status = BookingStatus.Assigned.ToString(),
+                OccurredAt = now
+            });
+
+            BookingNotifications.Add(dbContext, booking.CustomerProfileId, booking.Id,
+                "Booking accepted",
+                BookingNotifications.DescribeStatus(BookingStatus.Assigned, booking.Service?.Name));
+
+            results.Add(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId ?? Guid.Empty, booking.Address?.Label ?? booking.AddressLabel ?? "", booking.Address != null ? $"{booking.Address.StreetAddress}, {booking.Address.Suburb}" : $"{booking.AddressStreet}, {booking.AddressSuburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt, booking.IsRecurring, booking.RecurrenceFrequency, booking.RecurrenceGroupId, booking.RecurrenceIndex));
         }
 
-        // Ensure CleaningJobDetail exists
-        if (booking.CleaningJobDetail is null)
-        {
-            booking.CleaningJobDetail = new CleaningJobDetail
-            {
-                Id = Guid.NewGuid(),
-                BookingId = booking.Id,
-                CleaningType = "Standard",
-                CreatedAt = now,
-                UpdatedAt = now
-            };
-            dbContext.CleaningJobDetails.Add(booking.CleaningJobDetail);
-        }
-
-        dbContext.ServiceMilestones.Add(new ServiceMilestone
-        {
-            Id = Guid.NewGuid(),
-            BookingId = booking.Id,
-            MilestoneType = "BookingAccepted",
-            Status = BookingStatus.Assigned.ToString(),
-            OccurredAt = now
-        });
+        if (results.Count == 0)
+            return ApiResult<List<BookingDto>>.Failure("No bookings could be accepted.");
 
         await dbContext.SaveChangesAsync(cancellationToken);
-
-        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId, booking.Address?.Label ?? "", $"{booking.Address?.StreetAddress}, {booking.Address?.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
+        return ApiResult<List<BookingDto>>.Success(results);
     }
 }
 
@@ -602,9 +729,13 @@ public sealed class AssignCleanerToBookingCommandHandler(CleanConnectDbContext d
             OccurredAt = now
         });
 
+        BookingNotifications.Add(dbContext, booking.CustomerProfileId, booking.Id,
+            "Cleaner assigned",
+            $"{cleaner.User.FirstName} {cleaner.User.LastName} has been assigned to {booking.Service?.Name ?? "your booking"} and is on the way.");
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId, booking.Address?.Label ?? "", $"{booking.Address?.StreetAddress}, {booking.Address?.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
+        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId ?? Guid.Empty, booking.Address?.Label ?? booking.AddressLabel ?? "", booking.Address != null ? $"{booking.Address.StreetAddress}, {booking.Address.Suburb}" : $"{booking.AddressStreet}, {booking.AddressSuburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
     }
 }
 
@@ -708,8 +839,12 @@ public sealed class AssignTeamCommandHandler(CleanConnectDbContext dbContext)
             OccurredAt = now
         });
 
+        BookingNotifications.Add(dbContext, booking.CustomerProfileId, booking.Id,
+            "Team assigned",
+            $"A team has been assigned to {booking.Service?.Name ?? "your booking"} and is on the way.");
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId, booking.Address?.Label ?? "", $"{booking.Address?.StreetAddress}, {booking.Address?.Suburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
+        return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId ?? Guid.Empty, booking.Address?.Label ?? booking.AddressLabel ?? "", booking.Address != null ? $"{booking.Address.StreetAddress}, {booking.Address.Suburb}" : $"{booking.AddressStreet}, {booking.AddressSuburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
     }
 }

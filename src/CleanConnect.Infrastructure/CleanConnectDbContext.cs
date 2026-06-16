@@ -33,6 +33,7 @@ public sealed class CleanConnectDbContext(DbContextOptions<CleanConnectDbContext
     public DbSet<JobCheckIn> JobCheckIns => Set<JobCheckIn>();
     public DbSet<JobCheckOut> JobCheckOuts => Set<JobCheckOut>();
     public DbSet<PostJobReport> PostJobReports => Set<PostJobReport>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -147,9 +148,17 @@ public sealed class CleanConnectDbContext(DbContextOptions<CleanConnectDbContext
             entity.Property(x => x.SpecialInstructions).HasMaxLength(1000);
             entity.Property(x => x.AccessNotes).HasMaxLength(1000);
             entity.Property(x => x.ParkingInformation).HasMaxLength(500);
+            entity.Property(x => x.AddressLabel).HasMaxLength(100);
+            entity.Property(x => x.AddressStreet).HasMaxLength(255);
+            entity.Property(x => x.AddressSuburb).HasMaxLength(100);
+            entity.Property(x => x.AddressCity).HasMaxLength(100);
+            entity.Property(x => x.AddressProvince).HasMaxLength(100);
+            entity.Property(x => x.AddressPostalCode).HasMaxLength(20);
+            entity.Property(x => x.RecurrenceFrequency).HasMaxLength(20);
+            entity.HasIndex(x => x.RecurrenceGroupId);
             entity.HasOne(x => x.CustomerProfile).WithMany(x => x.Bookings).HasForeignKey(x => x.CustomerProfileId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Service).WithMany(x => x.Bookings).HasForeignKey(x => x.ServiceId).OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(x => x.Address).WithMany(x => x.Bookings).HasForeignKey(x => x.AddressId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Address).WithMany(x => x.Bookings).HasForeignKey(x => x.AddressId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(x => x.Status);
             entity.HasIndex(x => x.PaymentStatus);
             entity.HasIndex(x => x.ScheduledStart);
@@ -213,6 +222,7 @@ public sealed class CleanConnectDbContext(DbContextOptions<CleanConnectDbContext
             entity.Property(x => x.Latitude).HasPrecision(10, 7);
             entity.Property(x => x.Longitude).HasPrecision(10, 7);
             entity.Property(x => x.PhotoUrl).HasMaxLength(100000);
+            entity.Property(x => x.PhotoUrlsJson).HasColumnType("jsonb").HasDefaultValue("[]").IsRequired();
             entity.Property(x => x.Notes).HasMaxLength(2000);
             entity.HasOne(x => x.Booking).WithMany(x => x.JobCheckIns).HasForeignKey(x => x.BookingId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
@@ -226,6 +236,7 @@ public sealed class CleanConnectDbContext(DbContextOptions<CleanConnectDbContext
             entity.Property(x => x.Latitude).HasPrecision(10, 7);
             entity.Property(x => x.Longitude).HasPrecision(10, 7);
             entity.Property(x => x.PhotoUrl).HasMaxLength(100000);
+            entity.Property(x => x.PhotoUrlsJson).HasColumnType("jsonb").HasDefaultValue("[]").IsRequired();
             entity.Property(x => x.Notes).HasMaxLength(2000);
             entity.Property(x => x.WorkSummary).HasMaxLength(2000);
             entity.HasOne(x => x.Booking).WithMany(x => x.JobCheckOuts).HasForeignKey(x => x.BookingId).OnDelete(DeleteBehavior.Cascade);
@@ -275,6 +286,19 @@ public sealed class CleanConnectDbContext(DbContextOptions<CleanConnectDbContext
             entity.HasIndex(x => x.BookingId).IsUnique();
             entity.HasIndex(x => x.GatewayReference).IsUnique();
             entity.HasIndex(x => x.Status);
+        });
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.ToTable("notifications");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.Message).HasMaxLength(2000).IsRequired();
+            entity.Property(x => x.Type).HasMaxLength(50).IsRequired();
+            entity.HasOne(x => x.CustomerProfile).WithMany().HasForeignKey(x => x.CustomerProfileId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.Booking).WithMany().HasForeignKey(x => x.BookingId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(x => new { x.CustomerProfileId, x.IsRead });
+            entity.HasIndex(x => x.CreatedAt);
         });
 
         modelBuilder.Entity<Review>(entity =>

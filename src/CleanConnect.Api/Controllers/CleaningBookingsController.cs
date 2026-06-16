@@ -36,7 +36,9 @@ public sealed class CleaningBookingsController(ISender sender) : ControllerBase
     [HttpPost("{bookingId:guid}/accept")]
     public async Task<IActionResult> AcceptBooking(Guid bookingId, [FromBody] AcceptBookingRequest request, CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new AcceptBookingCommand(bookingId, request.ProviderId), cancellationToken);
+        var scope = Enum.TryParse<AcceptBookingScope>(request.Scope, true, out var parsed) ? parsed : AcceptBookingScope.Single;
+        var selectedIds = request.SelectedBookingIds?.Select(Guid.Parse).ToList();
+        var result = await sender.Send(new AcceptBookingCommand(bookingId, request.ProviderId, scope, selectedIds), cancellationToken);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 
@@ -70,7 +72,7 @@ public sealed class CleaningBookingsController(ISender sender) : ControllerBase
 }
 
 public sealed record UpdateCleaningBookingStatusRequest(BookingStatus NewStatus, string? Notes);
-public sealed record AcceptBookingRequest(Guid ProviderId);
+public sealed record AcceptBookingRequest(Guid ProviderId, string? Scope = null, List<string>? SelectedBookingIds = null);
 public sealed record AssignCleanerRequest(Guid CleanerProfileId);
 public sealed record CompleteCleaningRequest(List<string> AfterPhotos, string? CleanerNotes, List<string>? CompletedChecklistItems);
 public sealed record AssignTeamRequest(List<Guid> CleanerProfileIds, Guid? SupervisorProfileId);

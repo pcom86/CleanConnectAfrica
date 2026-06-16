@@ -55,6 +55,7 @@ export interface JobCheckIn {
   latitude: number | null;
   longitude: number | null;
   photoUrl: string | null;
+  photoUrls: string[];
   notes: string | null;
 }
 
@@ -67,8 +68,20 @@ export interface JobCheckOut {
   latitude: number | null;
   longitude: number | null;
   photoUrl: string | null;
+  photoUrls: string[];
   notes: string | null;
   workSummary: string | null;
+}
+
+export interface Notification {
+  id: string;
+  bookingId: string | null;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+  readAt: string | null;
 }
 
 export interface ChecklistResult {
@@ -152,6 +165,10 @@ export interface Booking {
   payOnsite: boolean;
   createdAt: string;
   review: Review | null;
+  isRecurring?: boolean;
+  recurrenceFrequency?: string | null;
+  recurrenceGroupId?: string | null;
+  recurrenceIndex?: number | null;
 }
 
 export interface ProviderBooking {
@@ -244,6 +261,11 @@ export interface BookingDetail {
   jobDetail: CleaningJobDetail | null;
   assignments: Assignment[];
   milestones: ServiceMilestone[];
+  isRecurring?: boolean;
+  recurrenceFrequency?: string | null;
+  recurrenceGroupId?: string | null;
+  recurrenceIndex?: number | null;
+  recurrenceCount?: number | null;
 }
 
 export type UserRole = "Customer" | "BusinessCustomer" | "Cleaner" | "Supervisor" | "ProviderOwner" | "ProviderStaff" | "Admin";

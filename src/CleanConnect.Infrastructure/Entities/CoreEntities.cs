@@ -80,7 +80,17 @@ public sealed class Booking
     public Guid Id { get; set; }
     public Guid CustomerProfileId { get; set; }
     public Guid ServiceId { get; set; }
-    public Guid AddressId { get; set; }
+    public Guid? AddressId { get; set; }
+
+    // One-time (unsaved) service address captured directly on the booking.
+    // Populated only when AddressId is null.
+    public string? AddressLabel { get; set; }
+    public string? AddressStreet { get; set; }
+    public string? AddressSuburb { get; set; }
+    public string? AddressCity { get; set; }
+    public string? AddressProvince { get; set; }
+    public string? AddressPostalCode { get; set; }
+
     public DateTimeOffset ScheduledStart { get; set; }
     public DateTimeOffset ScheduledEnd { get; set; }
     public BookingStatus Status { get; set; } = BookingStatus.Draft;
@@ -95,9 +105,15 @@ public sealed class Booking
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
+    // Recurrence
+    public bool IsRecurring { get; set; }
+    public Guid? RecurrenceGroupId { get; set; }
+    public string? RecurrenceFrequency { get; set; }   // Weekly, BiWeekly, Monthly
+    public int? RecurrenceIndex { get; set; }        // 1-based position within the series
+
     public CustomerProfile CustomerProfile { get; set; } = null!;
     public Service Service { get; set; } = null!;
-    public Address Address { get; set; } = null!;
+    public Address? Address { get; set; }
     public Assignment? Assignment { get; set; }
     public JobCompletion? JobCompletion { get; set; }
     public Payment? Payment { get; set; }
@@ -215,6 +231,7 @@ public sealed class JobCheckIn
     public decimal? Latitude { get; set; }
     public decimal? Longitude { get; set; }
     public string? PhotoUrl { get; set; }
+    public string PhotoUrlsJson { get; set; } = "[]";
     public string? Notes { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
@@ -231,6 +248,7 @@ public sealed class JobCheckOut
     public decimal? Latitude { get; set; }
     public decimal? Longitude { get; set; }
     public string? PhotoUrl { get; set; }
+    public string PhotoUrlsJson { get; set; } = "[]";
     public string? Notes { get; set; }
     public string? WorkSummary { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
