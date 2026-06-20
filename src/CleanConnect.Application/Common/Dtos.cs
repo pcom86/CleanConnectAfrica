@@ -12,13 +12,15 @@ public sealed record AddressDto(Guid Id, string Label, string StreetAddress, str
 
 public sealed record ReviewDto(Guid Id, int Rating, string? Comment, DateTimeOffset CreatedAt);
 
-public sealed record CustomerBookingDto(Guid Id, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt, ReviewDto? Review);
+public sealed record BookingServiceDto(Guid ServiceId, string ServiceName, string ServiceCategory, decimal UnitPrice);
 
-public sealed record ProviderBookingDto(Guid Id, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, decimal? AddressLatitude, decimal? AddressLongitude, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt);
+public sealed record CustomerBookingDto(Guid Id, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt, ReviewDto? Review, List<BookingServiceDto>? Services = null);
+
+public sealed record ProviderBookingDto(Guid Id, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, decimal? AddressLatitude, decimal? AddressLongitude, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt, List<BookingServiceDto>? Services = null);
 
 public sealed record CleanerProfileDto(Guid Id, Guid? ProviderId, EmploymentType EmploymentType, StaffRole StaffRole, string Skills, string ServiceZones, decimal Rating, AccountStatus Status);
 
-public sealed record BookingDto(Guid Id, Guid CustomerProfileId, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt, bool IsRecurring = false, string? RecurrenceFrequency = null, Guid? RecurrenceGroupId = null, int? RecurrenceIndex = null);
+public sealed record BookingDto(Guid Id, Guid CustomerProfileId, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt, bool IsRecurring = false, string? RecurrenceFrequency = null, Guid? RecurrenceGroupId = null, int? RecurrenceIndex = null, List<BookingServiceDto>? Services = null);
 
 public sealed record BookingDetailDto(
     Guid Id,
@@ -44,7 +46,8 @@ public sealed record BookingDetailDto(
     string? RecurrenceFrequency = null,
     Guid? RecurrenceGroupId = null,
     int? RecurrenceIndex = null,
-    int? RecurrenceCount = null
+    int? RecurrenceCount = null,
+    List<BookingServiceDto>? Services = null
 );
 
 public sealed record CleaningJobDetailDto(

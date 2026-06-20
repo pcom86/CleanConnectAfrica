@@ -148,6 +148,13 @@ export interface Review {
   createdAt: string;
 }
 
+export interface BookingServiceItem {
+  serviceId: string;
+  serviceName: string;
+  serviceCategory: string;
+  unitPrice: number;
+}
+
 export interface Booking {
   id: string;
   serviceId: string;
@@ -169,6 +176,7 @@ export interface Booking {
   recurrenceFrequency?: string | null;
   recurrenceGroupId?: string | null;
   recurrenceIndex?: number | null;
+  services?: BookingServiceItem[];
 }
 
 export interface ProviderBooking {
@@ -189,6 +197,7 @@ export interface ProviderBooking {
   currency: string;
   payOnsite: boolean;
   createdAt: string;
+  services?: BookingServiceItem[];
 }
 
 export interface CleaningJobDetail {
@@ -266,6 +275,7 @@ export interface BookingDetail {
   recurrenceGroupId?: string | null;
   recurrenceIndex?: number | null;
   recurrenceCount?: number | null;
+  services?: BookingServiceItem[];
 }
 
 export type UserRole = "Customer" | "BusinessCustomer" | "Cleaner" | "Supervisor" | "ProviderOwner" | "ProviderStaff" | "Admin";

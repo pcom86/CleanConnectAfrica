@@ -501,6 +501,36 @@ if ($recurringRes.succeeded) {
 }
 
 # ------------------------------------------------------------------
+# 8d. Create Multi-Service Booking (requires provider to offer both categories)
+# ------------------------------------------------------------------
+$multiServiceId1 = $services.id[0]
+$multiServiceName1 = $services.name[0]
+$multiServiceId2 = if ($services.id.Length -gt 1) { $services.id[1] } else { $services.id[0] }
+$multiServiceName2 = if ($services.name.Length -gt 1) { $services.name[1] } else { $services.name[0] }
+$day6 = (Get-Date).AddDays(6).Date.AddHours(10).ToUniversalTime()
+$multiStart = $day6.ToString("yyyy-MM-ddTHH:mm:ssZ")
+$multiEnd = (Get-Date $day6).AddHours(2).ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+$multiServicePayload = @{
+    CustomerProfileId  = $customerProfileId
+    ServiceIds         = @($multiServiceId1, $multiServiceId2)
+    AddressId          = $addressId
+    ScheduledStart     = $multiStart
+    ScheduledEnd       = $multiEnd
+    SpecialInstructions = "Multi-service booking test - both $multiServiceName1 and $multiServiceName2"
+    AccessNotes        = "Multiple services requested"
+    HasPets            = $false
+    ParkingInformation = "Visitor parking"
+    PayOnsite          = $false
+}
+$multiServiceRes = Invoke-ApiPost "/api/v1/cleaning-bookings" $multiServicePayload
+if ($multiServiceRes.succeeded) {
+    Write-Host "Created Multi-Service Booking: ID=$($multiServiceRes.data[0].id) | Services=$multiServiceName1 + $multiServiceName2 | Price=R$($multiServiceRes.data[0].price)" -ForegroundColor Green
+} else {
+    Write-Host "Failed to create multi-service booking: $($multiServiceRes.error)" -ForegroundColor Red
+}
+
+# ------------------------------------------------------------------
 # 9. Final Summary
 # ------------------------------------------------------------------
 Write-Host "`n============================================================" -ForegroundColor Yellow
@@ -579,6 +609,15 @@ if ($recurringRes.succeeded) {
     foreach ($b in $recurringRes.data) {
         Write-Host "   Booking ID : $($b.id) | $($b.scheduledStart) | Status=$($b.status)" -ForegroundColor White
     }
+}
+
+if ($multiServiceRes.succeeded) {
+    $multiId = $multiServiceRes.data[0].id
+    $multiPrice = $multiServiceRes.data[0].price
+    Write-Host "`nMULTI-SERVICE BOOKING" -ForegroundColor Cyan
+    Write-Host "   Booking ID : $multiId" -ForegroundColor White
+    Write-Host "   Services   : $multiServiceName1 + $multiServiceName2" -ForegroundColor White
+    Write-Host "   Price      : R$multiPrice" -ForegroundColor White
 }
 
 Write-Host "`n============================================================" -ForegroundColor Yellow

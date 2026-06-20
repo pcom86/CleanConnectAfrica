@@ -1,18 +1,28 @@
 using CleanConnect.Application.Common;
 using CleanConnect.Infrastructure;
+using CleanConnect.Infrastructure.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace CleanConnect.Application.Bookings;
 
-public sealed record GetProviderBookingsQuery(int Page = 1, int PageSize = 50) : IRequest<ApiResult<PagedResult<ProviderBookingDto>>>;
+public sealed record GetProviderBookingsQuery(int Page = 1, int PageSize = 50, Guid? ProviderContactUserId = null) : IRequest<ApiResult<PagedResult<ProviderBookingDto>>>;
 
 public sealed class GetProviderBookingsQueryHandler(CleanConnectDbContext dbContext) : IRequestHandler<GetProviderBookingsQuery, ApiResult<PagedResult<ProviderBookingDto>>>
 {
     public async Task<ApiResult<PagedResult<ProviderBookingDto>>> Handle(GetProviderBookingsQuery request, CancellationToken cancellationToken)
     {
+        Provider? provider = null;
+        if (request.ProviderContactUserId.HasValue)
+        {
+            provider = await dbContext.Providers
+                .AsNoTracking()
+                .SingleOrDefaultAsync(x => x.ContactUserId == request.ProviderContactUserId.Value && x.IsEligibleForBookings, cancellationToken);
+        }
+
         var query = dbContext.Bookings
             .AsNoTracking()
+            .Where(x => x.Status == BookingStatus.Confirmed || x.Status == BookingStatus.PendingPayment)
             .OrderByDescending(x => x.CreatedAt);
 
         var total = await query.CountAsync(cancellationToken);
@@ -22,6 +32,7 @@ public sealed class GetProviderBookingsQueryHandler(CleanConnectDbContext dbCont
             .Take(request.PageSize)
             .Include(x => x.Service)
             .Include(x => x.Address)
+            .Include(x => x.BookingServices)
             .Select(x => new ProviderBookingDto(
                 x.Id,
                 x.ServiceId,
@@ -41,8 +52,23 @@ public sealed class GetProviderBookingsQueryHandler(CleanConnectDbContext dbCont
                 x.Price,
                 x.Currency,
                 x.PayOnsite,
-                x.CreatedAt))
+                x.CreatedAt,
+                x.BookingServices.OrderBy(bs => bs.SortOrder).Select(bs => new BookingServiceDto(bs.ServiceId, bs.ServiceName, bs.ServiceCategory, bs.UnitPrice)).ToList()))
             .ToListAsync(cancellationToken);
+
+        // If provider is identified, filter to only bookings whose service categories are all covered by the provider.
+        if (provider is not null)
+        {
+            var providerCategories = provider.ServiceCategories.Select(c => c.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            items = items
+                .Where(x =>
+                {
+                    var categories = (x.Services is { Count: > 0 } ? x.Services.Select(s => s.ServiceCategory) : new[] { x.ServiceCategory }).Where(c => !string.IsNullOrWhiteSpace(c)).ToList();
+                    return categories.Count > 0 && categories.All(c => providerCategories.Contains(c));
+                })
+                .ToList();
+            total = items.Count;
+        }
 
         return ApiResult<PagedResult<ProviderBookingDto>>.Success(new PagedResult<ProviderBookingDto>(items, request.Page, request.PageSize, total));
     }
@@ -81,6 +107,7 @@ public sealed class GetMyProviderBookingsQueryHandler(CleanConnectDbContext dbCo
             .Take(request.PageSize)
             .Include(x => x.Service)
             .Include(x => x.Address)
+            .Include(x => x.BookingServices)
             .Select(x => new ProviderBookingDto(
                 x.Id,
                 x.ServiceId,
@@ -100,7 +127,8 @@ public sealed class GetMyProviderBookingsQueryHandler(CleanConnectDbContext dbCo
                 x.Price,
                 x.Currency,
                 x.PayOnsite,
-                x.CreatedAt))
+                x.CreatedAt,
+                x.BookingServices.OrderBy(bs => bs.SortOrder).Select(bs => new BookingServiceDto(bs.ServiceId, bs.ServiceName, bs.ServiceCategory, bs.UnitPrice)).ToList()))
             .ToListAsync(cancellationToken);
 
         return ApiResult<PagedResult<ProviderBookingDto>>.Success(new PagedResult<ProviderBookingDto>(items, request.Page, request.PageSize, total));

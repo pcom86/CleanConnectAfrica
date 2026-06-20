@@ -11,9 +11,9 @@ namespace CleanConnect.Api.Controllers;
 public sealed class ProviderBookingsController(ISender sender) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetProviderBookings([FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetProviderBookings([FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] Guid? providerContactUserId = null, CancellationToken cancellationToken = default)
     {
-        var result = await sender.Send(new GetProviderBookingsQuery(page, pageSize), cancellationToken);
+        var result = await sender.Send(new GetProviderBookingsQuery(page, pageSize, providerContactUserId), cancellationToken);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 

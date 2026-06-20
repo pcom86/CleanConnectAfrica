@@ -48,6 +48,13 @@ function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatServiceNames(booking: Booking | ProviderBooking) {
+  if (booking.services && booking.services.length > 0) {
+    return booking.services.map((s) => s.serviceName).join(" + ");
+  }
+  return booking.serviceName;
+}
+
 export default function BookingCalendar({ bookings, onBookingClick }: BookingCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<{ year: number; month: number; day: number } | null>(null);
@@ -130,7 +137,7 @@ export default function BookingCalendar({ bookings, onBookingClick }: BookingCal
                 {dayBookings.slice(0, 4).map((b) => (
                   <span
                     key={b.id}
-                    title={`${b.serviceName} — ${formatTime(b.scheduledStart)}`}
+                    title={`${formatServiceNames(b)} — ${formatTime(b.scheduledStart)}`}
                     className={`w-2 h-2 rounded-full ${STATUS_COLORS[b.status] ?? "bg-gray-400"}`}
                   />
                 ))}
@@ -177,7 +184,7 @@ export default function BookingCalendar({ bookings, onBookingClick }: BookingCal
                 >
                   <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${STATUS_COLORS[b.status] ?? "bg-gray-400"}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{b.serviceName}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{formatServiceNames(b)}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {formatTime(b.scheduledStart)} — {STATUS_LABELS[b.status] ?? b.status}
                     </p>

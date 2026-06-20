@@ -266,7 +266,8 @@ export async function listServices(): Promise<ApiResult<Service[]>> {
 
 export async function createCleaningBooking(data: {
   customerProfileId: string;
-  serviceId: string;
+  serviceId?: string | null;
+  serviceIds?: string[];
   addressId?: string | null;
   oneTimeAddress?: { streetAddress: string; suburb: string; city: string; province: string; postalCode?: string | null; label?: string | null } | null;
   scheduledStart: string;
@@ -295,8 +296,10 @@ export async function rateBooking(data: {
   return post<Review>("/api/v1/customer-bookings/rate", data);
 }
 
-export async function getProviderBookings(page = 1, pageSize = 50): Promise<ApiResult<PagedResult<ProviderBooking>>> {
-  return get<PagedResult<ProviderBooking>>(`/api/v1/provider-bookings?page=${page}&pageSize=${pageSize}`);
+export async function getProviderBookings(page = 1, pageSize = 50, providerContactUserId?: string | null): Promise<ApiResult<PagedResult<ProviderBooking>>> {
+  let url = `/api/v1/provider-bookings?page=${page}&pageSize=${pageSize}`;
+  if (providerContactUserId) url += `&providerContactUserId=${providerContactUserId}`;
+  return get<PagedResult<ProviderBooking>>(url);
 }
 
 export async function addCustomerAddress(userId: string, data: {

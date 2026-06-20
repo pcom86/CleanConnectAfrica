@@ -263,8 +263,10 @@ export default function ProviderBookingDetailPage() {
 
         {/* Booking Info */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{booking.serviceName}</h1>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              {booking.services && booking.services.length > 1 ? booking.services.map((s) => s.serviceName).join(" + ") : booking.serviceName}
+            </h1>
             {booking.isRecurring && booking.recurrenceFrequency && (
               <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs font-medium rounded-full">
                 {booking.recurrenceFrequency}
@@ -272,6 +274,19 @@ export default function ProviderBookingDetailPage() {
             )}
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{booking.serviceCategory}</p>
+          {booking.services && booking.services.length > 1 && (
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-xs font-medium text-blue-800 dark:text-blue-300 mb-1.5">Requested services:</p>
+              <div className="space-y-1">
+                {booking.services.map((s) => (
+                  <div key={s.serviceId} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700 dark:text-gray-300">{s.serviceName}</span>
+                    <span className="text-brand-green font-medium">R{s.unitPrice.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {booking.isRecurring && booking.recurrenceCount && booking.recurrenceCount > 1 && (
             <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
               <p className="text-sm font-medium text-purple-800 dark:text-purple-300">

@@ -77,7 +77,7 @@ while ($elapsed -lt $maxWait -and -not $dashboardUrl) {
             $dashboardUrl = "http://localhost:$uiPort/login"
             # Try to extract token from the live page redirect
             try {
-                $r = Invoke-WebRequest -Uri "http://localhost:$uiPort/" -Method GET -UseBasicParsing -TimeoutSec 3 -MaximumRedirection 0
+                Invoke-WebRequest -Uri "http://localhost:$uiPort/" -Method GET -UseBasicParsing -TimeoutSec 3 -MaximumRedirection 0 | Out-Null
             } catch {
                 if ($_.Exception.Response -and $_.Exception.Response.Headers["Location"]) {
                     $loc = $_.Exception.Response.Headers["Location"]
@@ -94,6 +94,29 @@ if ($dashboardUrl) {
     Write-Host "Dashboard ready in ${elapsed}s." -ForegroundColor Green
 } else {
     Write-Host "Dashboard not detected within ${maxWait}s." -ForegroundColor Red
+}
+
+# ------------------------------------------------------------------
+# Wait for the API to be ready (up to 60 seconds)
+# ------------------------------------------------------------------
+Write-Host "Waiting for API to be ready on http://localhost:5000..." -ForegroundColor Yellow
+$apiReady = $false
+$maxApiWait = 60
+$apiElapsed = 0
+while ($apiElapsed -lt $maxApiWait -and -not $apiReady) {
+    Start-Sleep -Seconds 1
+    $apiElapsed++
+    $listener = Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($listener) {
+        $apiReady = $true
+        break
+    }
+}
+
+if ($apiReady) {
+    Write-Host "API ready on http://localhost:5000 in ${apiElapsed}s." -ForegroundColor Green
+} else {
+    Write-Host "API not detected on http://localhost:5000 within ${maxApiWait}s. Check the Aspire terminal window for errors." -ForegroundColor Red
 }
 
 Write-Host ""

@@ -20,6 +20,7 @@ public sealed class GetBookingByIdQueryHandler(CleanConnectDbContext dbContext) 
             .Include(b => b.CleaningJobDetail)
             .Include(b => b.Assignment)
             .Include(b => b.ServiceMilestones)
+            .Include(b => b.BookingServices)
             .Where(b => b.Id == query.BookingId)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -117,6 +118,11 @@ public sealed class GetBookingByIdQueryHandler(CleanConnectDbContext dbContext) 
                 .CountAsync(x => x.RecurrenceGroupId == booking.RecurrenceGroupId, cancellationToken);
         }
 
+        var services = booking.BookingServices
+            .OrderBy(x => x.SortOrder)
+            .Select(x => new BookingServiceDto(x.ServiceId, x.ServiceName, x.ServiceCategory, x.UnitPrice))
+            .ToList();
+
         var dto = new BookingDetailDto(
             booking.Id,
             booking.CustomerProfileId,
@@ -143,7 +149,8 @@ public sealed class GetBookingByIdQueryHandler(CleanConnectDbContext dbContext) 
             booking.RecurrenceFrequency,
             booking.RecurrenceGroupId,
             booking.RecurrenceIndex,
-            recurrenceCount
+            recurrenceCount,
+            services
         );
 
         return ApiResult<BookingDetailDto>.Success(dto);

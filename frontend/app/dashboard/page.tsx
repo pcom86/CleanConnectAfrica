@@ -82,7 +82,7 @@ export default function DashboardPage() {
   const [addrSaving, setAddrSaving] = useState(false);
 
   // New booking form
-  const [bookingForm, setBookingForm] = useState({ serviceId: "", addressId: "", date: "", time: "09:00", specialInstructions: "", accessNotes: "", hasPets: false, parkingInformation: "", payOnsite: false, isRecurring: false, recurrenceFrequency: "Weekly" as "Weekly" | "BiWeekly" | "Monthly", recurrenceCount: 2 });
+  const [bookingForm, setBookingForm] = useState({ serviceIds: [] as string[], addressId: "", date: "", time: "09:00", specialInstructions: "", accessNotes: "", hasPets: false, parkingInformation: "", payOnsite: false, isRecurring: false, recurrenceFrequency: "Weekly" as "Weekly" | "BiWeekly" | "Monthly", recurrenceCount: 2 });
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [bookingSaving, setBookingSaving] = useState(false);
   const [bookingAddressMode, setBookingAddressMode] = useState<"saved" | "new">("saved");
@@ -135,7 +135,7 @@ export default function DashboardPage() {
         // Load provider bookings
         setProviderBookingsLoading(true);
         try {
-          const pbRes = await getProviderBookings(1, 50);
+          const pbRes = await getProviderBookings(1, 50, freshUser.id);
           if (pbRes.succeeded && pbRes.data) setProviderBookings(pbRes.data.items);
         } catch { /* silent */ } finally { setProviderBookingsLoading(false); }
         // Load my assigned bookings
@@ -225,7 +225,7 @@ export default function DashboardPage() {
   async function handleCreateBooking(e: React.FormEvent) {
     e.preventDefault(); if (!user?.customerProfile) return;
     setBookingError(null);
-    if (!bookingForm.serviceId || !bookingForm.date || !bookingForm.time) { setBookingError("Please select a service, date and time."); return; }
+    if (bookingForm.serviceIds.length === 0 || !bookingForm.date || !bookingForm.time) { setBookingError("Please select at least one service, date and time."); return; }
 
     const scheduledStart = new Date(`${bookingForm.date}T${bookingForm.time}`);
     const scheduledEnd = new Date(scheduledStart.getTime() + 2 * 60 * 60 * 1000);
@@ -234,7 +234,7 @@ export default function DashboardPage() {
     try {
       let payload: Parameters<typeof createCleaningBooking>[0] = {
         customerProfileId: user.customerProfile.id,
-        serviceId: bookingForm.serviceId,
+        serviceIds: bookingForm.serviceIds,
         scheduledStart: scheduledStart.toISOString(),
         scheduledEnd: scheduledEnd.toISOString(),
         specialInstructions: bookingForm.specialInstructions.trim() || null,
@@ -274,7 +274,7 @@ export default function DashboardPage() {
       if (result.succeeded && result.data && result.data.length > 0) {
         const newBookings = result.data;
         setBookings((prev) => [...newBookings, ...prev]);
-        setBookingForm({ serviceId: "", addressId: "", date: "", time: "09:00", specialInstructions: "", accessNotes: "", hasPets: false, parkingInformation: "", payOnsite: false, isRecurring: false, recurrenceFrequency: "Weekly", recurrenceCount: 2 });
+        setBookingForm({ serviceIds: [], addressId: "", date: "", time: "09:00", specialInstructions: "", accessNotes: "", hasPets: false, parkingInformation: "", payOnsite: false, isRecurring: false, recurrenceFrequency: "Weekly", recurrenceCount: 2 });
         setBookingNewAddr({ label: "Home", streetAddress: "", suburb: "", city: "", province: "", postalCode: "" });
         setBookingAddressMode(customerAddresses.length > 0 ? "saved" : "new");
         setShowNewBooking(false);
@@ -381,27 +381,29 @@ export default function DashboardPage() {
               )}
             </button>
             {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50">
-                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <div className="absolute right-0 mt-3 w-80 max-w-[calc(100vw-2rem)] max-h-96 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50">
+                {/* Arrow */}
+                <div className="absolute -top-1.5 right-3 w-3 h-3 bg-white dark:bg-gray-900 border-l border-t border-gray-200 dark:border-gray-700 transform rotate-45" />
+                <div className="relative px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-gray-900 rounded-t-xl">
                   <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Notifications</h3>
                   {notifications.length > 0 && user?.customerProfile?.id && (
-                    <button onClick={() => handleMarkAllRead(user.customerProfile!.id)} className="text-xs text-brand-green hover:text-brand-green-dark font-medium">Mark all read</button>
+                    <button onClick={() => handleMarkAllRead(user.customerProfile!.id)} className="text-xs text-brand-green hover:text-brand-green-dark font-medium shrink-0 ml-2">Mark all read</button>
                   )}
                 </div>
                 {notificationsLoading ? (
-                  <div className="p-4 text-center text-sm text-gray-500">Loading…</div>
+                  <div className="relative p-4 text-center text-sm text-gray-500">Loading…</div>
                 ) : notifications.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-gray-500">No new notifications</div>
+                  <div className="relative p-4 text-center text-sm text-gray-500">No new notifications</div>
                 ) : (
-                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                  <div className="relative divide-y divide-gray-100 dark:divide-gray-800">
                     {notifications.map((n) => (
                       <div key={n.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{n.title}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{n.message}</p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-[10px] text-gray-400">{new Date(n.createdAt).toLocaleString()}</span>
+                        <div className="flex items-center justify-between mt-2 gap-2">
+                          <span className="text-[10px] text-gray-400 truncate">{new Date(n.createdAt).toLocaleString()}</span>
                           {user?.customerProfile?.id && (
-                            <button onClick={() => handleMarkRead(n.id, user.customerProfile!.id)} className="text-xs text-brand-green hover:text-brand-green-dark font-medium">Mark read</button>
+                            <button onClick={() => handleMarkRead(n.id, user.customerProfile!.id)} className="text-xs text-brand-green hover:text-brand-green-dark font-medium shrink-0">Mark read</button>
                           )}
                         </div>
                       </div>
@@ -682,30 +684,51 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {myProviderBookings.map((b) => (
-                      <div key={b.id} className="flex items-stretch gap-2">
-                        <Link href={`/dashboard/provider-booking/${b.id}`} className="flex-1 block p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-brand-green hover:shadow-sm transition-all">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{b.serviceName}</p>
-                                <CategoryBadge category={b.serviceCategory} />
+                    {myProviderBookings.map((b) => {
+                      const statusBorder =
+                        b.status === "Assigned" || b.status === "Confirmed"
+                          ? "border-l-indigo-500"
+                          : b.status === "InProgress" || b.status === "CleanerEnRoute"
+                          ? "border-l-fuchsia-500"
+                          : b.status === "Completed"
+                          ? "border-l-green-500"
+                          : b.status === "Cancelled"
+                          ? "border-l-red-500"
+                          : "border-l-gray-300";
+                      return (
+                        <div key={b.id} className="flex items-stretch gap-2 min-w-0">
+                          <Link
+                            href={`/dashboard/provider-booking/${b.id}`}
+                            className={`group flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-brand-green hover:shadow-md transition-all border-l-4 ${statusBorder} overflow-hidden`}
+                          >
+                            <div className="flex-1 min-w-0 overflow-hidden">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <p className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                  {b.services && b.services.length > 1 ? b.services.map((s) => s.serviceName).join(" + ") : b.serviceName}
+                                </p>
                                 <StatusBadge status={b.status} />
                               </div>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{b.addressSummary}</p>
-                              <p className="text-xs text-gray-400 dark:text-gray-500">{new Date(b.scheduledStart).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{b.addressSummary}</p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                                📅 {new Date(b.scheduledStart).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric", month: "short", year: "numeric" })} ·{" "}
+                                {new Date(b.scheduledStart).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}
+                              </p>
                             </div>
-                            <div className="text-right">
-                              <p className="text-sm font-bold text-brand-green">R{b.price.toFixed(2)}</p>
-                              <p className="text-xs text-brand-green font-medium">Manage →</p>
+                            <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 sm:gap-0 shrink-0 min-w-0">
+                              <p className="text-base sm:text-lg font-bold text-brand-green">R{b.price.toFixed(2)}</p>
+                              <p className="text-xs text-brand-green font-medium opacity-80 group-hover:opacity-100 transition-opacity whitespace-nowrap">Manage →</p>
                             </div>
-                          </div>
-                        </Link>
-                        <Link href={`/dashboard/booking-report/${b.id}`} className="flex items-center justify-center px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-blue-400 hover:bg-blue-50 transition-all text-blue-500 text-xs font-medium whitespace-nowrap">
-                          📋<span className="ml-1 hidden sm:inline">Report</span>
-                        </Link>
-                      </div>
-                    ))}
+                          </Link>
+                          <Link
+                            href={`/dashboard/booking-report/${b.id}`}
+                            className="flex flex-col items-center justify-center gap-1 px-2 sm:px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all text-blue-500 text-xs font-medium shrink-0"
+                          >
+                            <span className="text-base">📋</span>
+                            <span className="hidden sm:inline">Report</span>
+                          </Link>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -760,7 +783,9 @@ export default function DashboardPage() {
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{b.serviceName}</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                {b.services && b.services.length > 1 ? b.services.map((s) => s.serviceName).join(" + ") : b.serviceName}
+                              </p>
                               <CategoryBadge category={b.serviceCategory} />
                               <StatusBadge status={b.payOnsite && (b.status === "Confirmed" || b.status === "PendingPayment") ? "Pay Onsite" : b.status} />
                             </div>
@@ -822,7 +847,38 @@ export default function DashboardPage() {
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between"><h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">New Booking</h2><button onClick={() => setShowNewBooking(false)} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-xl">&times;</button></div>
             <form onSubmit={handleCreateBooking} className="p-6 space-y-4">
               {bookingError && <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">{bookingError}</div>}
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service</label><select required value={bookingForm.serviceId} onChange={(e) => setBookingForm({ ...bookingForm, serviceId: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"><option value="">Select a service</option>{services.map((s) => <option key={s.id} value={s.id}>{s.name} — R{s.basePrice.toFixed(2)}</option>)}</select></div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Services <span className="text-gray-400 dark:text-gray-500 font-normal">(select one or more)</span></label>
+                <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-800">
+                  {services.map((s) => {
+                    const selected = bookingForm.serviceIds.includes(s.id);
+                    return (
+                      <label key={s.id} className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors ${selected ? "bg-brand-green-light dark:bg-green-900/20" : "hover:bg-gray-50 dark:hover:bg-gray-700"}`}>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={(e) => {
+                              const ids = e.target.checked
+                                ? [...bookingForm.serviceIds, s.id]
+                                : bookingForm.serviceIds.filter((id) => id !== s.id);
+                              setBookingForm({ ...bookingForm, serviceIds: ids });
+                            }}
+                            className="w-4 h-4 text-brand-green border-gray-300 dark:border-gray-600 rounded focus:ring-brand-green bg-white dark:bg-gray-800"
+                          />
+                          <span className="text-sm text-gray-900 dark:text-gray-100">{s.name}</span>
+                        </div>
+                        <span className="text-xs font-medium text-brand-green">R{s.basePrice.toFixed(2)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {bookingForm.serviceIds.length > 0 && (
+                  <p className="text-xs text-brand-green font-medium mt-1">
+                    Total: R{bookingForm.serviceIds.reduce((sum, id) => sum + (services.find((s) => s.id === id)?.basePrice ?? 0), 0).toFixed(2)}
+                  </p>
+                )}
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
                 {customerAddresses.length > 0 && (

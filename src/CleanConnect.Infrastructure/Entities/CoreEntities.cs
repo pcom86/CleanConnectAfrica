@@ -72,7 +72,21 @@ public sealed class Service
     public DateTimeOffset UpdatedAt { get; set; }
 
     public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+    public ICollection<BookingService> BookingServices { get; set; } = new List<BookingService>();
     public ICollection<Checklist> Checklists { get; set; } = new List<Checklist>();
+}
+
+public sealed class BookingService
+{
+    public Guid BookingId { get; set; }
+    public Guid ServiceId { get; set; }
+    public string ServiceName { get; set; } = string.Empty;
+    public string ServiceCategory { get; set; } = string.Empty;
+    public decimal UnitPrice { get; set; }
+    public int SortOrder { get; set; }
+
+    public Booking Booking { get; set; } = null!;
+    public Service Service { get; set; } = null!;
 }
 
 public sealed class Booking
@@ -121,6 +135,7 @@ public sealed class Booking
     public LaundryJobDetail? LaundryJobDetail { get; set; }
     public CarWashJobDetail? CarWashJobDetail { get; set; }
     public CleaningJobDetail? CleaningJobDetail { get; set; }
+    public ICollection<BookingService> BookingServices { get; set; } = new List<BookingService>();
     public ICollection<ServiceMilestone> ServiceMilestones { get; set; } = new List<ServiceMilestone>();
     public ICollection<JobCheckIn> JobCheckIns { get; set; } = new List<JobCheckIn>();
     public ICollection<JobCheckOut> JobCheckOuts { get; set; } = new List<JobCheckOut>();

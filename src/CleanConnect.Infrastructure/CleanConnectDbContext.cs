@@ -11,6 +11,7 @@ public sealed class CleanConnectDbContext(DbContextOptions<CleanConnectDbContext
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<Service> Services => Set<Service>();
     public DbSet<Booking> Bookings => Set<Booking>();
+    public DbSet<BookingService> BookingServices => Set<BookingService>();
     public DbSet<Assignment> Assignments => Set<Assignment>();
     public DbSet<CleanerProfile> CleanerProfiles => Set<CleanerProfile>();
     public DbSet<Provider> Providers => Set<Provider>();
@@ -163,6 +164,17 @@ public sealed class CleanConnectDbContext(DbContextOptions<CleanConnectDbContext
             entity.HasIndex(x => x.PaymentStatus);
             entity.HasIndex(x => x.ScheduledStart);
             entity.HasIndex(x => new { x.CustomerProfileId, x.ScheduledStart });
+        });
+
+        modelBuilder.Entity<BookingService>(entity =>
+        {
+            entity.ToTable("booking_services");
+            entity.HasKey(x => new { x.BookingId, x.ServiceId });
+            entity.Property(x => x.ServiceName).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.ServiceCategory).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.UnitPrice).HasPrecision(12, 2);
+            entity.HasOne(x => x.Booking).WithMany(x => x.BookingServices).HasForeignKey(x => x.BookingId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.Service).WithMany(x => x.BookingServices).HasForeignKey(x => x.ServiceId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Assignment>(entity =>

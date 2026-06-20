@@ -19,12 +19,20 @@ interface BookingRowProps {
   onRate?: (bookingId: string, rating: number, comment: string) => void;
 }
 
+function formatServiceNames(booking: Booking) {
+  if (booking.services && booking.services.length > 1) {
+    return booking.services.map((s) => s.serviceName).join(" + ");
+  }
+  return booking.serviceName;
+}
+
 export default function BookingRow({ booking, customerProfileId, onRate }: BookingRowProps) {
   const isPayOnsite = booking.payOnsite && (booking.status === "Confirmed" || booking.status === "PendingPayment");
   const displayStatus = isPayOnsite ? "Pay Onsite" : booking.status;
   const cls = statusClasses[booking.status] ?? "bg-gray-100 text-gray-600";
   const isCompleted = booking.status === "Completed";
   const hasReview = booking.review != null;
+  const serviceNames = formatServiceNames(booking);
   const [showRateForm, setShowRateForm] = useState(false);
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -45,7 +53,7 @@ export default function BookingRow({ booking, customerProfileId, onRate }: Booki
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{booking.serviceName}</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{serviceNames}</p>
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{displayStatus}</span>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{booking.addressSummary}</p>
