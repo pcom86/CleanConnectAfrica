@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Booking } from "@/lib/types";
-import { Star } from "lucide-react";
+import { Star, Pencil } from "lucide-react";
 
 const statusClasses: Record<string, string> = {
   Confirmed: "bg-green-100 text-green-700",
@@ -17,6 +17,7 @@ interface BookingRowProps {
   booking: Booking;
   customerProfileId?: string;
   onRate?: (bookingId: string, rating: number, comment: string) => void;
+  onEdit?: (booking: Booking) => void;
 }
 
 function formatServiceNames(booking: Booking) {
@@ -26,7 +27,7 @@ function formatServiceNames(booking: Booking) {
   return booking.serviceName;
 }
 
-export default function BookingRow({ booking, customerProfileId, onRate }: BookingRowProps) {
+export default function BookingRow({ booking, customerProfileId, onRate, onEdit }: BookingRowProps) {
   const isPayOnsite = booking.payOnsite && (booking.status === "Confirmed" || booking.status === "PendingPayment");
   const displayStatus = isPayOnsite ? "Pay Onsite" : booking.status;
   const cls = statusClasses[booking.status] ?? "bg-gray-100 text-gray-600";
@@ -60,7 +61,19 @@ export default function BookingRow({ booking, customerProfileId, onRate }: Booki
           <p className="text-xs text-gray-400 dark:text-gray-500">{new Date(booking.scheduledStart).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}</p>
         </div>
         <div className="text-right flex flex-col items-end gap-1">
-          <p className="text-sm font-bold text-brand-green">R{booking.price.toFixed(2)}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold text-brand-green">R{booking.price.toFixed(2)}</p>
+            {onEdit && (booking.status === "Draft" || booking.status === "PendingPayment" || booking.status === "Confirmed") && (
+              <button
+                type="button"
+                onClick={() => onEdit(booking)}
+                title="Edit booking"
+                className="p-1 text-gray-400 hover:text-brand-green transition-colors rounded"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
           {isCompleted && hasReview && (
             <div className="flex items-center gap-0.5">
               {Array.from({ length: 5 }).map((_, i) => (

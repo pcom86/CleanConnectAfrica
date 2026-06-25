@@ -903,3 +903,80 @@ public sealed class AssignTeamCommandHandler(CleanConnectDbContext dbContext)
         return ApiResult<BookingDto>.Success(new BookingDto(booking.Id, booking.CustomerProfileId, booking.ServiceId, booking.Service?.Name ?? "", booking.Service?.Category ?? "", booking.AddressId ?? Guid.Empty, booking.Address?.Label ?? booking.AddressLabel ?? "", booking.Address != null ? $"{booking.Address.StreetAddress}, {booking.Address.Suburb}" : $"{booking.AddressStreet}, {booking.AddressSuburb}", booking.ScheduledStart, booking.ScheduledEnd, booking.Status, booking.PaymentStatus, booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt));
     }
 }
+
+// --- Update Booking Details (Customer) ---
+public sealed record UpdateBookingCommand(
+    Guid BookingId,
+    DateTimeOffset ScheduledStart,
+    DateTimeOffset ScheduledEnd,
+    string? SpecialInstructions,
+    string? AccessNotes,
+    bool HasPets,
+    string? ParkingInformation) : IRequest<ApiResult<BookingDto>>;
+
+public sealed class UpdateBookingCommandValidator : AbstractValidator<UpdateBookingCommand>
+{
+    public UpdateBookingCommandValidator()
+    {
+        RuleFor(x => x.BookingId).NotEmpty();
+        RuleFor(x => x.ScheduledEnd).GreaterThan(x => x.ScheduledStart).WithMessage("End time must be after start time.");
+    }
+}
+
+public sealed class UpdateBookingCommandHandler(CleanConnectDbContext dbContext) : IRequestHandler<UpdateBookingCommand, ApiResult<BookingDto>>
+{
+    public async Task<ApiResult<BookingDto>> Handle(UpdateBookingCommand request, CancellationToken cancellationToken)
+    {
+        var booking = await dbContext.Bookings
+            .Include(x => x.Service)
+            .Include(x => x.Address)
+            .Include(x => x.BookingServices)
+            .SingleOrDefaultAsync(x => x.Id == request.BookingId, cancellationToken);
+
+        if (booking is null)
+            return ApiResult<BookingDto>.Failure("Booking was not found.");
+
+        if (booking.Status != BookingStatus.Draft && booking.Status != BookingStatus.PendingPayment && booking.Status != BookingStatus.Confirmed)
+            return ApiResult<BookingDto>.Failure("Only pending or confirmed bookings can be edited.");
+
+        var now = DateTimeOffset.UtcNow;
+        booking.ScheduledStart = request.ScheduledStart;
+        booking.ScheduledEnd = request.ScheduledEnd;
+        booking.SpecialInstructions = request.SpecialInstructions;
+        booking.AccessNotes = request.AccessNotes;
+        booking.HasPets = request.HasPets;
+        booking.ParkingInformation = request.ParkingInformation;
+        booking.UpdatedAt = now;
+
+        dbContext.ServiceMilestones.Add(new ServiceMilestone
+        {
+            Id = Guid.NewGuid(),
+            BookingId = booking.Id,
+            MilestoneType = "BookingUpdated",
+            Status = booking.Status.ToString(),
+            Notes = "Booking details updated by customer.",
+            OccurredAt = now
+        });
+
+        var addressLabel = booking.Address?.Label ?? booking.AddressLabel ?? "";
+        var addressSummary = booking.Address != null
+            ? $"{booking.Address.StreetAddress}, {booking.Address.Suburb}"
+            : $"{booking.AddressStreet}, {booking.AddressSuburb}";
+        var bookingServices = booking.BookingServices
+            .OrderBy(x => x.SortOrder)
+            .Select(x => new BookingServiceDto(x.ServiceId, x.ServiceName, x.ServiceCategory, x.UnitPrice))
+            .ToList();
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ApiResult<BookingDto>.Success(new BookingDto(
+            booking.Id, booking.CustomerProfileId, booking.ServiceId,
+            booking.Service?.Name ?? "", booking.Service?.Category ?? "",
+            booking.AddressId ?? Guid.Empty, addressLabel, addressSummary,
+            booking.ScheduledStart, booking.ScheduledEnd,
+            booking.Status, booking.PaymentStatus,
+            booking.Price, booking.Currency, booking.PayOnsite, booking.CreatedAt,
+            booking.IsRecurring, booking.RecurrenceFrequency, booking.RecurrenceGroupId, booking.RecurrenceIndex,
+            bookingServices.Count > 0 ? bookingServices : null));
+    }
+}

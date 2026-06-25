@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent, type ChangeEvent } from "react";
+import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { registerUser } from "@/lib/api";
@@ -30,7 +30,7 @@ const STEPS: { num: Step; label: string }[] = [
   { num: 1, label: "Account" },
   { num: 2, label: "Address" },
   { num: 3, label: "ID Verify" },
-  { num: 4, label: "Liveness" },
+  { num: 4, label: "Face Check" },
   { num: 5, label: "Review" },
 ];
 
@@ -54,6 +54,11 @@ export default function RegisterPage() {
   });
   const [idVerified, setIdVerified] = useState(false);
   const [livenessVerified, setLivenessVerified] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -113,15 +118,60 @@ export default function RegisterPage() {
     }
   }
 
-  function handleMockLiveness(pass: boolean) {
-    setError(null);
-    if (pass) {
-      setLivenessVerified(true);
-      goNext();
-    } else {
-      setError("Liveness / profile verification failed. Please ensure your face is clearly visible. (Mock)");
-      setLivenessVerified(false);
+  useEffect(() => {
+    if (step !== 4) {
+      cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current = null;
+      return;
     }
+    setCapturedPhoto(null);
+    setCameraError(null);
+    navigator.mediaDevices
+      ?.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } })
+      .then((stream) => {
+        cameraStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      })
+      .catch(() => setCameraError("Camera access denied. Please allow camera permissions and try again."));
+    return () => {
+      cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current = null;
+    };
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function capturePhoto() {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext("2d")?.drawImage(video, 0, 0);
+    setCapturedPhoto(canvas.toDataURL("image/jpeg", 0.85));
+    cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+    cameraStreamRef.current = null;
+  }
+
+  function retakePhoto() {
+    setCapturedPhoto(null);
+    setCameraError(null);
+    navigator.mediaDevices
+      ?.getUserMedia({ video: { facingMode: "user" } })
+      .then((stream) => {
+        cameraStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      })
+      .catch(() => setCameraError("Could not restart camera."));
+  }
+
+  function confirmFace() {
+    setLivenessVerified(true);
+    goNext();
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -197,7 +247,7 @@ export default function RegisterPage() {
               >
                 {s.label}
               </span>
-              {s.num !== 4 && <div className="w-6 h-px bg-gray-200" />}
+              {s.num !== 5 && <div className="w-6 h-px bg-gray-200" />}
             </div>
           );
         })}
@@ -498,50 +548,65 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* Step 4 — Liveness & Profile Verification */}
+          {/* Step 4 — Face Verification */}
           {step === 4 && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <h2 className="text-lg font-bold text-gray-900 mb-1">Liveness &amp; Profile Check</h2>
-                <p className="text-sm text-gray-500">Take a live selfie to confirm your identity and complete your profile.</p>
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Face Verification</h2>
+                <p className="text-sm text-gray-500">Take a live selfie to confirm your identity. Ensure your face is clearly visible in good lighting.</p>
               </div>
 
-              {/* Placeholder camera frame */}
-              <div className="bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 aspect-video flex flex-col items-center justify-center text-gray-400">
-                <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <p className="text-sm font-medium">Camera preview placeholder</p>
-                <p className="text-xs mt-1">Face detection will run here</p>
-              </div>
-
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-                <p className="font-semibold mb-1">Mock Liveness Check</p>
-                <p className="text-xs text-amber-700 mb-3">
-                  This step will eventually run a real liveness + face-match check. For now, use the buttons below to simulate the outcome.
-                </p>
-                <div className="flex gap-3">
+              {cameraError ? (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+                  <p className="font-semibold mb-1">Camera unavailable</p>
+                  <p>{cameraError}</p>
+                </div>
+              ) : capturedPhoto ? (
+                <div className="space-y-4">
+                  <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                    <img src={capturedPhoto} alt="Selfie" className="w-full h-full object-cover" />
+                    <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                      Photo taken
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 text-center">Does this look clear and well-lit?</p>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={retakePhoto} className="flex-1 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">Retake</button>
+                    <button type="button" onClick={confirmFace} className="flex-1 py-3 bg-brand-green text-white font-semibold rounded-lg hover:bg-brand-green-dark transition-colors">Confirm →</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                    <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-36 h-48 border-2 border-white/60 rounded-full" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 text-center">Position your face within the oval and ensure good lighting</p>
                   <button
-                    onClick={() => handleMockLiveness(true)}
-                    className="flex-1 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    type="button"
+                    onClick={capturePhoto}
+                    className="w-full py-3 bg-brand-green text-white font-semibold rounded-lg hover:bg-brand-green-dark transition-colors flex items-center justify-center gap-2"
                   >
-                    Mock: Pass Liveness
-                  </button>
-                  <button
-                    onClick={() => handleMockLiveness(false)}
-                    className="flex-1 py-2.5 bg-red-50 text-red-700 font-medium rounded-lg hover:bg-red-100 border border-red-200 transition-colors text-sm"
-                  >
-                    Mock: Fail Liveness
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Take Selfie
                   </button>
                 </div>
-              </div>
+              )}
+
+              <canvas ref={canvasRef} className="hidden" />
 
               <button
+                type="button"
                 onClick={goBack}
                 className="w-full py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
               >
-                Back
+                ← Back
               </button>
             </div>
           )}

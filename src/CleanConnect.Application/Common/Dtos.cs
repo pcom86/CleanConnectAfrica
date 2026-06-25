@@ -47,7 +47,11 @@ public sealed record BookingDetailDto(
     Guid? RecurrenceGroupId = null,
     int? RecurrenceIndex = null,
     int? RecurrenceCount = null,
-    List<BookingServiceDto>? Services = null
+    List<BookingServiceDto>? Services = null,
+    string? SpecialInstructions = null,
+    string? AccessNotes = null,
+    bool HasPets = false,
+    string? ParkingInformation = null
 );
 
 public sealed record CleaningJobDetailDto(

@@ -345,6 +345,17 @@ export async function updateBookingStatus(bookingId: string, newStatus: string, 
   return put<Booking>(`/api/v1/cleaning-bookings/${bookingId}/status`, { newStatus, notes });
 }
 
+export async function updateBooking(bookingId: string, data: {
+  scheduledStart: string;
+  scheduledEnd: string;
+  specialInstructions?: string | null;
+  accessNotes?: string | null;
+  hasPets?: boolean;
+  parkingInformation?: string | null;
+}): Promise<ApiResult<Booking>> {
+  return put<Booking>(`/api/v1/cleaning-bookings/${bookingId}`, data);
+}
+
 export async function completeBooking(bookingId: string, afterPhotos: string[], cleanerNotes: string, completedChecklistItems?: string[]): Promise<ApiResult<Booking>> {
   return post<Booking>(`/api/v1/cleaning-bookings/${bookingId}/complete`, { afterPhotos, cleanerNotes, completedChecklistItems });
 }

@@ -21,6 +21,8 @@ import {
   getCustomerNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  updateBooking,
+  getBookingById,
 } from "@/lib/api";
 import type { User, BusinessProfile, Service, Booking, ProviderBooking, Address, TeamMember, Notification } from "@/lib/types";
 import ThemeToggle from "../components/ThemeToggle";
@@ -70,6 +72,12 @@ export default function DashboardPage() {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [showNewBooking, setShowNewBooking] = useState(false);
+  const [showEditBooking, setShowEditBooking] = useState(false);
+  const [editBookingId, setEditBookingId] = useState<string | null>(null);
+  const [editBookingFetching, setEditBookingFetching] = useState(false);
+  const [editBookingForm, setEditBookingForm] = useState({ date: "", startTime: "09:00", endTime: "11:00", specialInstructions: "", accessNotes: "", hasPets: false, parkingInformation: "" });
+  const [editBookingError, setEditBookingError] = useState<string | null>(null);
+  const [editBookingSaving, setEditBookingSaving] = useState(false);
 
   // Edit profile form
   const [editForm, setEditForm] = useState({ firstName: "", lastName: "", email: "", phoneNumber: "", customerType: "Residential", companyName: "" });
@@ -181,6 +189,54 @@ export default function DashboardPage() {
   async function handleMarkAllRead(customerProfileId: string) {
     await markAllNotificationsRead(customerProfileId);
     loadNotifications(customerProfileId);
+  }
+
+  async function openEditBooking(booking: import("@/lib/types").Booking) {
+    setEditBookingId(booking.id);
+    setEditBookingError(null);
+    setEditBookingFetching(true);
+    setShowEditBooking(true);
+    const start = new Date(booking.scheduledStart);
+    const end = new Date(booking.scheduledEnd);
+    const toDateStr = (d: Date) => d.toISOString().slice(0, 10);
+    const toTimeStr = (d: Date) => d.toTimeString().slice(0, 5);
+    setEditBookingForm({ date: toDateStr(start), startTime: toTimeStr(start), endTime: toTimeStr(end), specialInstructions: "", accessNotes: "", hasPets: false, parkingInformation: "" });
+    try {
+      const res = await getBookingById(booking.id);
+      if (res.succeeded && res.data) {
+        const d = res.data;
+        setEditBookingForm({ date: toDateStr(start), startTime: toTimeStr(start), endTime: toTimeStr(end), specialInstructions: d.specialInstructions ?? "", accessNotes: d.accessNotes ?? "", hasPets: d.hasPets ?? false, parkingInformation: d.parkingInformation ?? "" });
+      }
+    } catch { /* use defaults */ } finally { setEditBookingFetching(false); }
+  }
+
+  async function handleSaveEditBooking(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editBookingId) return;
+    setEditBookingError(null);
+    if (!editBookingForm.date || !editBookingForm.startTime || !editBookingForm.endTime) { setEditBookingError("Date and times are required."); return; }
+    const start = new Date(`${editBookingForm.date}T${editBookingForm.startTime}`);
+    const end = new Date(`${editBookingForm.date}T${editBookingForm.endTime}`);
+    if (end <= start) { setEditBookingError("End time must be after start time."); return; }
+    setEditBookingSaving(true);
+    try {
+      const res = await updateBooking(editBookingId, {
+        scheduledStart: start.toISOString(),
+        scheduledEnd: end.toISOString(),
+        specialInstructions: editBookingForm.specialInstructions.trim() || null,
+        accessNotes: editBookingForm.accessNotes.trim() || null,
+        hasPets: editBookingForm.hasPets,
+        parkingInformation: editBookingForm.parkingInformation.trim() || null,
+      });
+      if (res.succeeded && res.data) {
+        setBookings((prev) => prev.map((b) => b.id === editBookingId ? { ...b, scheduledStart: res.data!.scheduledStart, scheduledEnd: res.data!.scheduledEnd } : b));
+        setShowEditBooking(false);
+        setEditBookingId(null);
+      } else {
+        setEditBookingError(res.error ?? "Failed to update booking.");
+      }
+    } catch { setEditBookingError("Server error. Please try again."); }
+    finally { setEditBookingSaving(false); }
   }
 
   function openEditProfile() {
@@ -381,9 +437,7 @@ export default function DashboardPage() {
               )}
             </button>
             {showNotifications && (
-              <div className="absolute right-0 mt-3 w-80 max-w-[calc(100vw-2rem)] max-h-96 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50">
-                {/* Arrow */}
-                <div className="absolute -top-1.5 right-3 w-3 h-3 bg-white dark:bg-gray-900 border-l border-t border-gray-200 dark:border-gray-700 transform rotate-45" />
+              <div className="fixed right-2 top-16 w-80 max-w-[calc(100vw-1rem)] max-h-96 overflow-y-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50">
                 <div className="relative px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-gray-900 rounded-t-xl">
                   <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100">Notifications</h3>
                   {notifications.length > 0 && user?.customerProfile?.id && (
@@ -509,7 +563,7 @@ export default function DashboardPage() {
                 {bookings.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700"><p className="text-gray-500 dark:text-gray-400 text-sm">No bookings yet.</p><p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Create your first booking to get started.</p></div>
                 ) : (
-                  <div className="space-y-3">{bookings.map((b) => <BookingRow key={b.id} booking={b} customerProfileId={user?.customerProfile?.id} onRate={handleRateBooking} />)}</div>
+                  <div className="space-y-3">{bookings.map((b) => <BookingRow key={b.id} booking={b} customerProfileId={user?.customerProfile?.id} onRate={handleRateBooking} onEdit={openEditBooking} />)}</div>
                 )}
               </div>
             )}
@@ -742,68 +796,92 @@ export default function DashboardPage() {
             )}
 
             {user.role === "ProviderOwner" && businessProfile && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 sm:p-6 border-l-4 border-l-brand-green">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                  <div className="flex items-center gap-3">
-                    <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base sm:text-lg">🗂️ Available Bookings</h3>
-                    <span className="px-2 py-0.5 bg-brand-green-light dark:bg-green-900/30 text-brand-green dark:text-green-400 text-xs font-semibold rounded-full">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                {/* Header */}
+                <div className="px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base whitespace-nowrap">Available Bookings</h3>
+                    <span className="inline-flex items-center justify-center w-6 h-6 bg-brand-green text-white text-xs font-bold rounded-full flex-shrink-0">
                       {providerBookingsLoading ? "…" : getFilteredProviderBookings().length}
                     </span>
                   </div>
-                  <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={showAllProviderBookings}
-                      onChange={(e) => setShowAllProviderBookings(e.target.checked)}
-                      className="w-4 h-4 text-brand-green border-gray-300 dark:border-gray-600 rounded focus:ring-brand-green bg-white dark:bg-gray-800"
-                    />
-                    Show all (outside range)
+                  <label className="flex items-center gap-2 cursor-pointer select-none flex-shrink-0 group">
+                    <div className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${showAllProviderBookings ? "bg-brand-green" : "bg-gray-300 dark:bg-gray-600"}`}>
+                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${showAllProviderBookings ? "translate-x-4" : "translate-x-0"}`} />
+                      <input
+                        type="checkbox"
+                        checked={showAllProviderBookings}
+                        onChange={(e) => setShowAllProviderBookings(e.target.checked)}
+                        className="sr-only"
+                      />
+                    </div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Outside range</span>
                   </label>
                 </div>
 
                 {providerBookingsLoading ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full mx-auto mb-2" />
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Loading bookings…</p>
+                  <div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-400 dark:text-gray-500">
+                    <div className="animate-spin w-4 h-4 border-2 border-brand-green border-t-transparent rounded-full" />
+                    Loading…
                   </div>
                 ) : providerBookings.length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">No bookings available.</p>
-                    <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Check back later for new customer bookings.</p>
+                  <div className="py-10 text-center px-4">
+                    <p className="text-2xl mb-2">📭</p>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">No bookings available</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Check back later for new requests.</p>
                   </div>
                 ) : getFilteredProviderBookings().length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-                    <p className="text-gray-500 dark:text-gray-400 text-sm">No bookings in your service area.</p>
-                    <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">Toggle &ldquo;Show all&rdquo; to view bookings outside your range.</p>
+                  <div className="py-10 text-center px-4">
+                    <p className="text-2xl mb-2">🗺️</p>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">None in your service area</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Enable &ldquo;Show outside range&rdquo; to see more.</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {getFilteredProviderBookings().map((b) => (
-                      <Link key={b.id} href={`/dashboard/provider-booking/${b.id}`} className="block p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-brand-green hover:shadow-sm transition-all">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                {b.services && b.services.length > 1 ? b.services.map((s) => s.serviceName).join(" + ") : b.serviceName}
-                              </p>
-                              <CategoryBadge category={b.serviceCategory} />
-                              <StatusBadge status={b.payOnsite && (b.status === "Confirmed" || b.status === "PendingPayment") ? "Pay Onsite" : b.status} />
+                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {getFilteredProviderBookings().map((b) => {
+                      const serviceLabel = b.services && b.services.length > 1
+                        ? b.services.map((s) => s.serviceName).join(" + ")
+                        : b.serviceName;
+                      const distKm = b.addressLatitude != null && b.addressLongitude != null && businessProfile.latitude != null && businessProfile.longitude != null
+                        ? haversineDistance(businessProfile.latitude, businessProfile.longitude, b.addressLatitude, b.addressLongitude).toFixed(1)
+                        : null;
+                      const dateLabel = new Date(b.scheduledStart).toLocaleString("en-ZA", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                      const isPayOnsite = b.payOnsite && (b.status === "Confirmed" || b.status === "PendingPayment");
+                      return (
+                        <Link
+                          key={b.id}
+                          href={`/dashboard/provider-booking/${b.id}`}
+                          className="flex items-center gap-4 px-4 sm:px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors group"
+                        >
+                          {/* Left accent bar */}
+                          <div className="w-1 self-stretch rounded-full bg-brand-green opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{serviceLabel}</p>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              {b.services && b.services.length > 0
+                                ? b.services.map((s) => <CategoryBadge key={s.serviceId} category={s.serviceCategory} />)
+                                : <CategoryBadge category={b.serviceCategory} />}
+                              {isPayOnsite && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">Pay Onsite</span>
+                              )}
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{b.addressSummary}</p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500">{new Date(b.scheduledStart).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}</p>
-                            {b.addressLatitude != null && b.addressLongitude != null && businessProfile.latitude != null && businessProfile.longitude != null && (
-                              <p className="text-xs text-brand-green font-medium mt-1">
-                                📍 {haversineDistance(businessProfile.latitude, businessProfile.longitude, b.addressLatitude, b.addressLongitude).toFixed(1)} km away
-                              </p>
-                            )}
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              <span className="text-xs text-gray-500 dark:text-gray-400 truncate">📍 {b.addressSummary}</span>
+                              {distKm && <span className="text-xs font-medium text-brand-green flex-shrink-0">{distKm} km</span>}
+                            </div>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">🕐 {dateLabel}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-brand-green">R{b.price.toFixed(2)}</p>
-                            <p className="text-xs text-brand-green font-medium">View →</p>
+
+                          {/* Right: price + CTA */}
+                          <div className="flex-shrink-0 flex flex-col items-end gap-1.5">
+                            <span className="text-sm font-bold text-brand-green">R{b.price.toFixed(2)}</span>
+                            <span className="text-xs px-2.5 py-1 rounded-lg bg-brand-green text-white font-medium group-hover:bg-brand-green-dark transition-colors">Accept</span>
                           </div>
-                        </div>
-                      </Link>
-                    ))}
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -839,8 +917,47 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
-      {showEditProfile && <EditProfileModal />}
-      {showAddAddress && <AddAddressModal />}
+      {showEditProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between"><h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Edit Profile</h2><button onClick={() => setShowEditProfile(false)} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-xl">&times;</button></div>
+            <form onSubmit={handleSaveProfile} className="p-6 space-y-4">
+              {editError && <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">{editError}</div>}
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name</label><input required value={editForm.firstName} onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
+                <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name</label><input required value={editForm.lastName} onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
+              </div>
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label><input required type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number</label><input required value={editForm.phoneNumber} onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Type</label><select value={editForm.customerType} onChange={(e) => setEditForm({ ...editForm, customerType: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"><option value="Residential">Residential</option><option value="Hospitality">Hospitality</option><option value="Commercial">Commercial</option></select></div>
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company Name <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></label><input value={editForm.companyName} onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
+              <div className="flex gap-3 pt-2"><button type="button" onClick={() => setShowEditProfile(false)} className="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancel</button><button type="submit" disabled={editSaving} className="flex-1 py-2.5 bg-brand-green text-white font-semibold rounded-lg hover:bg-brand-green-dark transition-colors disabled:opacity-60">{editSaving ? "Saving…" : "Save Changes"}</button></div>
+            </form>
+          </div>
+        </div>
+      )}
+      {showAddAddress && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between"><h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Add Address</h2><button onClick={() => setShowAddAddress(false)} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-xl">&times;</button></div>
+            <form onSubmit={handleAddAddress} className="p-6 space-y-4">
+              {addrError && <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">{addrError}</div>}
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Label <span className="text-gray-400 dark:text-gray-500 font-normal">(e.g. Home, Office)</span></label><input required value={addrForm.label} onChange={(e) => setAddrForm({ ...addrForm, label: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Street Address</label><input required value={addrForm.streetAddress} onChange={(e) => setAddrForm({ ...addrForm, streetAddress: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Suburb</label><input required value={addrForm.suburb} onChange={(e) => setAddrForm({ ...addrForm, suburb: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
+                <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">City</label><input required value={addrForm.city} onChange={(e) => setAddrForm({ ...addrForm, city: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Province</label><select required value={addrForm.province} onChange={(e) => setAddrForm({ ...addrForm, province: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"><option value="">Select</option><option value="Eastern Cape">Eastern Cape</option><option value="Free State">Free State</option><option value="Gauteng">Gauteng</option><option value="KwaZulu-Natal">KwaZulu-Natal</option><option value="Limpopo">Limpopo</option><option value="Mpumalanga">Mpumalanga</option><option value="Northern Cape">Northern Cape</option><option value="North West">North West</option><option value="Western Cape">Western Cape</option></select></div>
+                <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Postal Code</label><input value={addrForm.postalCode} onChange={(e) => setAddrForm({ ...addrForm, postalCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
+              </div>
+              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Access Instructions <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></label><textarea value={addrForm.accessInstructions} onChange={(e) => setAddrForm({ ...addrForm, accessInstructions: e.target.value })} rows={2} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
+              <div className="flex gap-3 pt-2"><button type="button" onClick={() => setShowAddAddress(false)} className="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancel</button><button type="submit" disabled={addrSaving} className="flex-1 py-2.5 bg-brand-green text-white font-semibold rounded-lg hover:bg-brand-green-dark transition-colors disabled:opacity-60">{addrSaving ? "Adding…" : "Add Address"}</button></div>
+            </form>
+          </div>
+        </div>
+      )}
       {showNewBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -938,55 +1055,64 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {showEditBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Edit Booking</h2>
+              <button onClick={() => { setShowEditBooking(false); setEditBookingId(null); }} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-xl">&times;</button>
+            </div>
+            {editBookingFetching ? (
+              <div className="flex items-center justify-center gap-2 py-12 text-sm text-gray-400 dark:text-gray-500">
+                <div className="animate-spin w-5 h-5 border-2 border-brand-green border-t-transparent rounded-full" />
+                Loading booking details…
+              </div>
+            ) : (
+              <form onSubmit={handleSaveEditBooking} className="p-6 space-y-4">
+                {editBookingError && <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">{editBookingError}</div>}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+                  <input required type="date" value={editBookingForm.date} onChange={(e) => setEditBookingForm({ ...editBookingForm, date: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
+                    <input required type="time" value={editBookingForm.startTime} onChange={(e) => setEditBookingForm({ ...editBookingForm, startTime: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time</label>
+                    <input required type="time" value={editBookingForm.endTime} onChange={(e) => setEditBookingForm({ ...editBookingForm, endTime: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Special Instructions <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></label>
+                  <textarea value={editBookingForm.specialInstructions} onChange={(e) => setEditBookingForm({ ...editBookingForm, specialInstructions: e.target.value })} rows={2} placeholder="Any special requirements for the cleaner…" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 resize-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Access Notes <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></label>
+                  <input value={editBookingForm.accessNotes} onChange={(e) => setEditBookingForm({ ...editBookingForm, accessNotes: e.target.value })} placeholder="Gate code, intercom, key location…" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Parking Information <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></label>
+                  <input value={editBookingForm.parkingInformation} onChange={(e) => setEditBookingForm({ ...editBookingForm, parkingInformation: e.target.value })} placeholder="Street parking, bay number…" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="editHasPets" checked={editBookingForm.hasPets} onChange={(e) => setEditBookingForm({ ...editBookingForm, hasPets: e.target.checked })} className="w-4 h-4 text-brand-green border-gray-300 dark:border-gray-600 rounded focus:ring-brand-green bg-white dark:bg-gray-800" />
+                  <label htmlFor="editHasPets" className="text-sm text-gray-700 dark:text-gray-300">Pets on the premises</label>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => { setShowEditBooking(false); setEditBookingId(null); }} className="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancel</button>
+                  <button type="submit" disabled={editBookingSaving} className="flex-1 py-2.5 bg-brand-green text-white font-semibold rounded-lg hover:bg-brand-green-dark transition-colors disabled:opacity-60">{editBookingSaving ? "Saving…" : "Save Changes"}</button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 
-  function EditProfileModal() {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between"><h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Edit Profile</h2><button onClick={() => setShowEditProfile(false)} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-xl">&times;</button></div>
-          <form onSubmit={handleSaveProfile} className="p-6 space-y-4">
-            {editError && <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">{editError}</div>}
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">First Name</label><input required value={editForm.firstName} onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name</label><input required value={editForm.lastName} onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
-            </div>
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label><input required type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone Number</label><input required value={editForm.phoneNumber} onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Type</label><select value={editForm.customerType} onChange={(e) => setEditForm({ ...editForm, customerType: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"><option value="Residential">Residential</option><option value="Hospitality">Hospitality</option><option value="Commercial">Commercial</option></select></div>
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company Name <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></label><input value={editForm.companyName} onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
-            <div className="flex gap-3 pt-2"><button type="button" onClick={() => setShowEditProfile(false)} className="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancel</button><button type="submit" disabled={editSaving} className="flex-1 py-2.5 bg-brand-green text-white font-semibold rounded-lg hover:bg-brand-green-dark transition-colors disabled:opacity-60">{editSaving ? "Saving…" : "Save Changes"}</button></div>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  function AddAddressModal() {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between"><h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Add Address</h2><button onClick={() => setShowAddAddress(false)} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-xl">&times;</button></div>
-          <form onSubmit={handleAddAddress} className="p-6 space-y-4">
-            {addrError && <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg text-sm">{addrError}</div>}
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Label <span className="text-gray-400 dark:text-gray-500 font-normal">(e.g. Home, Office)</span></label><input required value={addrForm.label} onChange={(e) => setAddrForm({ ...addrForm, label: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Street Address</label><input required value={addrForm.streetAddress} onChange={(e) => setAddrForm({ ...addrForm, streetAddress: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Suburb</label><input required value={addrForm.suburb} onChange={(e) => setAddrForm({ ...addrForm, suburb: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">City</label><input required value={addrForm.city} onChange={(e) => setAddrForm({ ...addrForm, city: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Province</label><select required value={addrForm.province} onChange={(e) => setAddrForm({ ...addrForm, province: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800"><option value="">Select</option><option value="Eastern Cape">Eastern Cape</option><option value="Free State">Free State</option><option value="Gauteng">Gauteng</option><option value="KwaZulu-Natal">KwaZulu-Natal</option><option value="Limpopo">Limpopo</option><option value="Mpumalanga">Mpumalanga</option><option value="Northern Cape">Northern Cape</option><option value="North West">North West</option><option value="Western Cape">Western Cape</option></select></div>
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Postal Code</label><input value={addrForm.postalCode} onChange={(e) => setAddrForm({ ...addrForm, postalCode: e.target.value })} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
-            </div>
-            <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Access Instructions <span className="text-gray-400 dark:text-gray-500 font-normal">(optional)</span></label><textarea value={addrForm.accessInstructions} onChange={(e) => setAddrForm({ ...addrForm, accessInstructions: e.target.value })} rows={2} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-green text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800" /></div>
-            <div className="flex gap-3 pt-2"><button type="button" onClick={() => setShowAddAddress(false)} className="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Cancel</button><button type="submit" disabled={addrSaving} className="flex-1 py-2.5 bg-brand-green text-white font-semibold rounded-lg hover:bg-brand-green-dark transition-colors disabled:opacity-60">{addrSaving ? "Adding…" : "Add Address"}</button></div>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
 }
 

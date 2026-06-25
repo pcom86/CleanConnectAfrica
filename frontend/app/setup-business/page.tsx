@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type FormEvent, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createBusinessProfile, verifyCompany, listMembershipPlans } from "@/lib/api";
@@ -16,7 +16,7 @@ const SERVICE_OPTIONS: { value: ServiceCategory; label: string; icon: string; de
 
 export default function SetupBusinessPage() {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7>(1);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -42,6 +42,11 @@ export default function SetupBusinessPage() {
   const [verificationResult, setVerificationResult] = useState<{ isValid: boolean; message: string } | null>(null);
   const [createdProfile, setCreatedProfile] = useState<BusinessProfile | null>(null);
   const [paymentResult, setPaymentResult] = useState<"success" | "cancelled" | "failed" | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   const selectedPlan = membershipPlans.find((p) => p.id === selectedPlanId) ?? null;
   const joiningFee = selectedPlan?.joiningFeeAmount ?? 0;
@@ -57,6 +62,61 @@ export default function SetupBusinessPage() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (step !== 4) {
+      cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current = null;
+      return;
+    }
+    setCapturedPhoto(null);
+    setCameraError(null);
+    navigator.mediaDevices
+      ?.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } })
+      .then((stream) => {
+        cameraStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      })
+      .catch(() => setCameraError("Camera access denied. Please allow camera permissions and try again."));
+    return () => {
+      cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+      cameraStreamRef.current = null;
+    };
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function capturePhoto() {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext("2d")?.drawImage(video, 0, 0);
+    setCapturedPhoto(canvas.toDataURL("image/jpeg", 0.85));
+    cameraStreamRef.current?.getTracks().forEach((t) => t.stop());
+    cameraStreamRef.current = null;
+  }
+
+  function retakePhoto() {
+    setCapturedPhoto(null);
+    setCameraError(null);
+    navigator.mediaDevices
+      ?.getUserMedia({ video: { facingMode: "user" } })
+      .then((stream) => {
+        cameraStreamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      })
+      .catch(() => setCameraError("Could not restart camera."));
+  }
+
+  function confirmFace() {
+    setStep(5);
+  }
 
   function toggleService(cat: ServiceCategory) {
     setSelectedServices((prev) =>
@@ -199,13 +259,13 @@ export default function SetupBusinessPage() {
       const profile = await submitProfile(true, true);
       if (profile) {
         setPaymentResult("success");
-        setStep(6);
+        setStep(7);
       }
     } else {
       const profile = await submitProfile(true, false);
       if (profile) {
         setPaymentResult("cancelled");
-        setStep(6);
+        setStep(7);
       }
     }
   }
@@ -227,10 +287,10 @@ export default function SetupBusinessPage() {
 
       <main className="max-w-2xl mx-auto px-6 py-10">
         {/* Progress */}
-        {step < 6 && (
+        {step < 7 && (
           <div className="mb-8">
             <div className="flex items-center gap-1 mb-4 overflow-x-auto">
-              {[1, 2, 3, 4, 5].map((s) => (
+              {[1, 2, 3, 4, 5, 6].map((s) => (
                 <div key={s} className="flex items-center gap-1 flex-shrink-0">
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
@@ -243,15 +303,15 @@ export default function SetupBusinessPage() {
                   >
                     {s < step ? "✓" : s}
                   </div>
-                  {s < 5 && (
+                  {s < 6 && (
                     <div className={`h-0.5 w-8 ${s < step ? "bg-brand-green" : "bg-gray-200 dark:bg-gray-700"}`} />
                   )}
                 </div>
               ))}
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Step {step} of 5 —{" "}
-              {step === 1 ? "Business Details" : step === 2 ? "Services Offered" : step === 3 ? "Location & Coverage" : step === 4 ? "Company Verification" : "Joining Fee Payment"}
+              Step {step} of 6 —{" "}
+              {step === 1 ? "Business Details" : step === 2 ? "Services Offered" : step === 3 ? "Location & Coverage" : step === 4 ? "Face Verification" : step === 5 ? "Company Verification" : "Joining Fee Payment"}
             </p>
           </div>
         )}
@@ -610,8 +670,73 @@ export default function SetupBusinessPage() {
             </form>
           )}
 
-          {/* Step 4 — Company Verification */}
+          {/* Step 4 — Face Verification */}
           {step === 4 && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Face Verification</h1>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                  Take a live selfie to verify your identity as the owner of this business account.
+                </p>
+              </div>
+
+              {cameraError ? (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-700 dark:text-red-400">
+                  <p className="font-semibold mb-1">Camera unavailable</p>
+                  <p>{cameraError}</p>
+                </div>
+              ) : capturedPhoto ? (
+                <div className="space-y-4">
+                  <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                    <img src={capturedPhoto} alt="Selfie" className="w-full h-full object-cover" />
+                    <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                      Photo taken
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 text-center">Does this photo look clear and well-lit?</p>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={retakePhoto} className="flex-1 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">Retake</button>
+                    <button type="button" onClick={confirmFace} className="flex-1 py-3 bg-brand-green text-white font-semibold rounded-xl hover:bg-brand-green-dark transition-colors">Confirm &amp; Continue →</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative rounded-xl overflow-hidden bg-black aspect-video">
+                    <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-40 h-52 border-2 border-white/60 rounded-full" />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 text-center">Position your face within the oval guide and ensure good lighting</p>
+                  <button
+                    type="button"
+                    onClick={capturePhoto}
+                    className="w-full py-3 bg-brand-green text-white font-semibold rounded-xl hover:bg-brand-green-dark transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Take Selfie
+                  </button>
+                </div>
+              )}
+
+              <canvas ref={canvasRef} className="hidden" />
+
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                className="w-full py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                ← Back
+              </button>
+            </div>
+          )}
+
+          {/* Step 5 — Company Verification */}
+          {step === 5 && (
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Company Verification</h1>
               <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
@@ -634,7 +759,7 @@ export default function SetupBusinessPage() {
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Company Verified</h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{verificationResult.message}</p>
                   <button
-                    onClick={() => setStep(5)}
+                    onClick={() => setStep(6)}
                     className="w-full py-3 bg-brand-green text-white font-semibold rounded-xl hover:bg-brand-green-dark transition-colors"
                   >
                     Continue to Payment →
@@ -664,7 +789,7 @@ export default function SetupBusinessPage() {
               {!verificationResult && (
                 <div className="mt-6 flex gap-3">
                   <button
-                    onClick={() => setStep(3)}
+                    onClick={() => setStep(4)}
                     className="flex-1 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     ← Back
@@ -681,8 +806,8 @@ export default function SetupBusinessPage() {
             </div>
           )}
 
-          {/* Step 5 — Ozow EFT Payment */}
-          {step === 5 && (
+          {/* Step 6 — Ozow EFT Payment */}
+          {step === 6 && (
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Joining Fee Payment</h1>
               <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
@@ -742,7 +867,7 @@ export default function SetupBusinessPage() {
 
               <div className="mt-4 text-center">
                 <button
-                  onClick={() => setStep(4)}
+                  onClick={() => setStep(5)}
                   className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 >
                   ← Back to Verification
@@ -751,8 +876,8 @@ export default function SetupBusinessPage() {
             </div>
           )}
 
-          {/* Step 6 — Result */}
-          {step === 6 && createdProfile && (
+          {/* Step 7 — Result */}
+          {step === 7 && createdProfile && (
             <div className="text-center py-6">
               {paymentResult === "success" ? (
                 <>

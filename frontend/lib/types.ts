@@ -276,6 +276,10 @@ export interface BookingDetail {
   recurrenceIndex?: number | null;
   recurrenceCount?: number | null;
   services?: BookingServiceItem[];
+  specialInstructions?: string | null;
+  accessNotes?: string | null;
+  hasPets?: boolean;
+  parkingInformation?: string | null;
 }
 
 export type UserRole = "Customer" | "BusinessCustomer" | "Cleaner" | "Supervisor" | "ProviderOwner" | "ProviderStaff" | "Admin";

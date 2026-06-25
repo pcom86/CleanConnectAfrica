@@ -43,11 +43,12 @@ export default function LandingPage() {
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6 leading-tight break-words">
             Clean homes,{" "}
             <span className="text-brand-green">fresh laundry</span>,{" "}
-            <span className="text-brand-orange">sparkling cars</span>
+            <span className="text-brand-orange">sparkling cars</span>,{" "}
+            <span className="text-purple-500">pest-free spaces</span>
           </h1>
           <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-300 mb-6 sm:mb-10 leading-relaxed">
             Connect with trusted cleaning professionals across South Africa.
-            Book cleaning, laundry, or car wash services in minutes.
+            Book cleaning, laundry, car wash, or pest control services in minutes.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
             <Link
@@ -68,11 +69,12 @@ export default function LandingPage() {
 
       {/* Features */}
       <section className="bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 px-4 sm:px-6 py-12 sm:py-16">
-        <div className="max-w-4xl mx-auto grid sm:grid-cols-3 gap-6 sm:gap-8 text-center">
+        <div className="max-w-5xl mx-auto grid sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 text-center">
           {[
             { icon: "🧹", title: "Cleaning", desc: "Deep cleans, regular upkeep, and move-in/out services" },
             { icon: "👕", title: "Laundry", desc: "Wash, dry, iron and deliver — right to your door" },
             { icon: "🚗", title: "Car Wash", desc: "Mobile car wash at your home or office, any time" },
+            { icon: "🐛", title: "Pest Control", desc: "Safe, effective pest removal for homes and businesses" },
           ].map((f) => (
             <div key={f.title} className="p-4 sm:p-6 rounded-2xl bg-gray-50 dark:bg-gray-800">
               <div className="text-3xl sm:text-4xl mb-2 sm:mb-3">{f.icon}</div>

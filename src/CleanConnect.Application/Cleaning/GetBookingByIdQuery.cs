@@ -150,7 +150,11 @@ public sealed class GetBookingByIdQueryHandler(CleanConnectDbContext dbContext) 
             booking.RecurrenceGroupId,
             booking.RecurrenceIndex,
             recurrenceCount,
-            services
+            services,
+            booking.SpecialInstructions,
+            booking.AccessNotes,
+            booking.HasPets,
+            booking.ParkingInformation
         );
 
         return ApiResult<BookingDetailDto>.Success(dto);
