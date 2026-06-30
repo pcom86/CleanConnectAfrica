@@ -1,3 +1,4 @@
+using CleanConnect.Application.Common;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,6 +10,7 @@ public static class DependencyInjection
     {
         services.AddMediatR(configuration => configuration.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly));
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
+        services.AddSingleton<IIdentityVerificationService, MockIdentityVerificationService>();
 
         return services;
     }

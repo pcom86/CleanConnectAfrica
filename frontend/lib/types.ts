@@ -34,6 +34,7 @@ export interface CleanerProfile {
   serviceZones: string;
   rating: number;
   status: string;
+  profilePictureUrl: string | null;
 }
 
 export interface SupervisorProfile {
@@ -44,6 +45,7 @@ export interface SupervisorProfile {
   serviceZones: string;
   rating: number;
   status: string;
+  profilePictureUrl: string | null;
 }
 
 export interface JobCheckIn {
@@ -113,6 +115,9 @@ export interface User {
   role: string;
   status: string;
   idNumber: string | null;
+  mustChangePassword: boolean;
+  livenessRequired: boolean;
+  livenessVerifiedAt: string | null;
   customerProfile: CustomerProfile | null;
   cleanerProfile: CleanerProfile | null;
   supervisorProfile: SupervisorProfile | null;
@@ -227,6 +232,10 @@ export interface TeamMember {
   email: string;
   phoneNumber: string;
   status: string;
+  vettingStatus: string;
+  idDocumentUrl: string | null;
+  idVerifiedAt: string | null;
+  profilePictureUrl: string | null;
 }
 
 export interface Assignment {

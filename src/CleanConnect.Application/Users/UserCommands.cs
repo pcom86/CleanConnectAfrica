@@ -11,9 +11,9 @@ public sealed record AddressRequest(string StreetAddress, string Suburb, string 
 
 public sealed record CustomerProfileRequest(CustomerType CustomerType, string? CompanyName, string? VatNumber, string? BillingAddress, string? DefaultPaymentMethodReference, AddressRequest? Address = null);
 
-public sealed record CleanerProfileRequest(Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, AccountStatus Status = AccountStatus.Active, StaffRole StaffRole = StaffRole.Cleaner);
+public sealed record CleanerProfileRequest(Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, AccountStatus Status = AccountStatus.Active, StaffRole StaffRole = StaffRole.Cleaner, string? IdDocumentUrl = null, string? ProfilePictureUrl = null);
 
-public sealed record SupervisorProfileRequest(Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, AccountStatus Status = AccountStatus.Active);
+public sealed record SupervisorProfileRequest(Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, AccountStatus Status = AccountStatus.Active, string? IdDocumentUrl = null, string? ProfilePictureUrl = null);
 
 public sealed record CreateUserCommand(string FirstName, string LastName, string Email, string PhoneNumber, string PasswordHash, UserRole Role, AccountStatus Status = AccountStatus.Active, string? IdNumber = null, CustomerProfileRequest? CustomerProfile = null, CleanerProfileRequest? CleanerProfile = null) : IRequest<ApiResult<UserDto>>;
 
@@ -270,6 +270,10 @@ public sealed class UpdateUserCommandHandler(CleanConnectDbContext dbContext) : 
         user.CleanerProfile.ServiceZones = request.ServiceZones;
         user.CleanerProfile.Status = request.Status;
         user.CleanerProfile.StaffRole = request.StaffRole;
+        if (request.IdDocumentUrl is not null)
+            user.CleanerProfile.IdDocumentUrl = request.IdDocumentUrl;
+        if (request.ProfilePictureUrl is not null)
+            user.CleanerProfile.ProfilePictureUrl = request.ProfilePictureUrl;
         user.CleanerProfile.UpdatedAt = now;
     }
 
@@ -296,6 +300,10 @@ public sealed class UpdateUserCommandHandler(CleanConnectDbContext dbContext) : 
         user.SupervisorProfile.Skills = request.Skills;
         user.SupervisorProfile.ServiceZones = request.ServiceZones;
         user.SupervisorProfile.Status = request.Status;
+        if (request.IdDocumentUrl is not null)
+            user.SupervisorProfile.IdDocumentUrl = request.IdDocumentUrl;
+        if (request.ProfilePictureUrl is not null)
+            user.SupervisorProfile.ProfilePictureUrl = request.ProfilePictureUrl;
         user.SupervisorProfile.UpdatedAt = now;
     }
 }
@@ -450,12 +458,12 @@ internal static class UserMappings
 
         var cleanerProfile = user.CleanerProfile is null
             ? null
-            : new CleanerProfileDto(user.CleanerProfile.Id, user.CleanerProfile.ProviderId, user.CleanerProfile.EmploymentType, user.CleanerProfile.StaffRole, user.CleanerProfile.Skills, user.CleanerProfile.ServiceZones, user.CleanerProfile.Rating, user.CleanerProfile.Status);
+            : new CleanerProfileDto(user.CleanerProfile.Id, user.CleanerProfile.ProviderId, user.CleanerProfile.EmploymentType, user.CleanerProfile.StaffRole, user.CleanerProfile.Skills, user.CleanerProfile.ServiceZones, user.CleanerProfile.Rating, user.CleanerProfile.Status, user.CleanerProfile.VettingStatus, user.CleanerProfile.VettingNotes, user.CleanerProfile.VettedAt, user.CleanerProfile.IdDocumentUrl, user.CleanerProfile.IdVerifiedAt, user.CleanerProfile.ProfilePictureUrl);
 
         var supervisorProfile = user.SupervisorProfile is null
             ? null
-            : new SupervisorProfileDto(user.SupervisorProfile.Id, user.SupervisorProfile.ProviderId, user.SupervisorProfile.EmploymentType, user.SupervisorProfile.Skills, user.SupervisorProfile.ServiceZones, user.SupervisorProfile.Rating, user.SupervisorProfile.Status);
+            : new SupervisorProfileDto(user.SupervisorProfile.Id, user.SupervisorProfile.ProviderId, user.SupervisorProfile.EmploymentType, user.SupervisorProfile.Skills, user.SupervisorProfile.ServiceZones, user.SupervisorProfile.Rating, user.SupervisorProfile.Status, user.SupervisorProfile.VettingStatus, user.SupervisorProfile.VettingNotes, user.SupervisorProfile.VettedAt, user.SupervisorProfile.IdDocumentUrl, user.SupervisorProfile.IdVerifiedAt, user.SupervisorProfile.ProfilePictureUrl);
 
-        return new UserDto(user.Id, user.FirstName, user.LastName, user.Email, user.PhoneNumber, user.Role, user.Status, user.IdNumber, user.MustChangePassword, customerProfile, cleanerProfile, supervisorProfile);
+        return new UserDto(user.Id, user.FirstName, user.LastName, user.Email, user.PhoneNumber, user.Role, user.Status, user.IdNumber, user.MustChangePassword, user.LivenessRequired, user.LivenessVerifiedAt, customerProfile, cleanerProfile, supervisorProfile);
     }
 }

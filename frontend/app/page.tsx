@@ -1,18 +1,16 @@
 import Link from "next/link";
 import { LogIn, UserPlus } from "lucide-react";
 import ThemeToggle from "./components/ThemeToggle";
+import Logo from "./components/Logo";
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 sm:px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-sm">CC</span>
-          </div>
-          <span className="font-bold text-lg sm:text-xl text-gray-900 dark:text-gray-100 truncate">CleanConnect Africa</span>
-        </div>
+        <Link href="/" className="min-w-0">
+          <Logo size="sm" />
+        </Link>
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           <ThemeToggle />
           <Link
@@ -37,14 +35,14 @@ export default function LandingPage() {
       {/* Hero */}
       <main className="flex-1 flex items-center justify-center px-4 sm:px-6 py-12 sm:py-20">
         <div className="max-w-3xl text-center px-2">
-          <span className="inline-block px-3 py-1 bg-brand-green-light dark:bg-green-900/30 text-brand-green dark:text-green-400 text-xs sm:text-sm font-medium rounded-full mb-4 sm:mb-6">
+          <span className="inline-block px-3 py-1 bg-brand-navy-light dark:bg-brand-navy-dark/30 text-brand-navy dark:text-brand-navy-light text-xs sm:text-sm font-medium rounded-full mb-4 sm:mb-6">
             South Africa&apos;s #1 Home Services Platform
           </span>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-gray-100 mb-4 sm:mb-6 leading-tight break-words">
             Clean homes,{" "}
             <span className="text-brand-green">fresh laundry</span>,{" "}
             <span className="text-brand-orange">sparkling cars</span>,{" "}
-            <span className="text-purple-500">pest-free spaces</span>
+            <span className="text-brand-navy dark:text-brand-navy-light">pest-free spaces</span>
           </h1>
           <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-300 mb-6 sm:mb-10 leading-relaxed">
             Connect with trusted cleaning professionals across South Africa.
@@ -53,7 +51,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
             <Link
               href="/register"
-              className="px-6 sm:px-8 py-3 sm:py-4 bg-brand-green text-white font-semibold rounded-xl hover:bg-brand-green-dark transition-colors text-base sm:text-lg shadow-sm"
+              className="px-6 sm:px-8 py-3 sm:py-4 bg-brand-navy text-white font-semibold rounded-xl hover:bg-brand-navy-dark transition-colors text-base sm:text-lg shadow-sm"
             >
               Get started free
             </Link>

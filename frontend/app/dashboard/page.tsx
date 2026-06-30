@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { LogOut, Bell } from "lucide-react";
+import Logo from "../components/Logo";
 import { getSession, clearSession, saveSession } from "@/lib/auth";
 import {
   getUser,
@@ -101,6 +102,10 @@ export default function DashboardPage() {
   useEffect(() => {
     const session = getSession();
     if (!session) { router.replace("/login"); return; }
+    if (session.livenessRequired && !session.livenessVerifiedAt) {
+      router.replace("/liveness-check");
+      return;
+    }
     loadData(session);
   }, [router, paymentParam]);
 
@@ -419,10 +424,9 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">CC</span></div>
-          <span className="font-bold text-lg sm:text-xl text-gray-900 dark:text-gray-100">CleanConnect Africa</span>
-        </div>
+        <Link href="/" className="flex items-center gap-2">
+          <Logo size="sm" />
+        </Link>
         <div className="flex items-center gap-2 sm:gap-4">
           <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">{user.firstName} {user.lastName}</span>
           <div className="relative">
@@ -519,7 +523,14 @@ export default function DashboardPage() {
             <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
               <div className="bg-brand-green-light dark:bg-green-900/20 px-4 sm:px-6 py-4 sm:py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-brand-green rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-xl flex-shrink-0">{user.firstName[0]}{user.lastName[0]}</div>
+                  {(() => {
+                    const picUrl = user.cleanerProfile?.profilePictureUrl ?? user.supervisorProfile?.profilePictureUrl ?? null;
+                    return picUrl ? (
+                      <img src={picUrl} alt="{user.firstName} {user.lastName}" className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-white flex-shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 bg-brand-green rounded-full flex items-center justify-center text-white font-bold text-lg sm:text-xl flex-shrink-0">{user.firstName[0]}{user.lastName[0]}</div>
+                    );
+                  })()}
                   <div>
                     <h2 className="font-semibold text-gray-900 dark:text-gray-100 text-base sm:text-lg">{user.firstName} {user.lastName}</h2>
                     <span className="inline-block mt-1 px-2 py-0.5 bg-brand-green text-white text-xs font-medium rounded-full">{roleLabel[user.role] ?? user.role}</span>
@@ -617,7 +628,16 @@ export default function DashboardPage() {
 
             {user.cleanerProfile && (
               <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">🧹 Cleaner Profile</h3>
+                <div className="flex items-center gap-3 mb-4">
+                  {user.cleanerProfile.profilePictureUrl ? (
+                    <img src={user.cleanerProfile.profilePictureUrl} alt={user.firstName} className="h-10 w-10 rounded-full object-cover border border-gray-200 dark:border-gray-600" />
+                  ) : (
+                    <div className="h-10 w-10 rounded-full bg-brand-green flex items-center justify-center text-white text-sm font-bold">
+                      {user.firstName[0]}{user.lastName[0]}
+                    </div>
+                  )}
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">🧹 Cleaner Profile</h3>
+                </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <InfoRow label="Employment type" value={user.cleanerProfile.employmentType} />
                   <InfoRow label="Rating" value={`${user.cleanerProfile.rating}/5`} />

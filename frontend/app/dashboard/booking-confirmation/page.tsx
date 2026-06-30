@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import type { Booking } from "@/lib/types";
 import ThemeToggle from "@/app/components/ThemeToggle";
+import Logo from "@/app/components/Logo";
 
 function ConfirmationContent() {
   const searchParams = useSearchParams();
@@ -84,12 +85,9 @@ function ConfirmationContent() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">CC</span>
-          </div>
-          <span className="font-bold text-xl text-gray-900 dark:text-gray-100">CleanConnect Africa</span>
-        </div>
+        <Link href="/" className="flex items-center gap-2">
+          <Logo size="sm" />
+        </Link>
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <Link href="/dashboard" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">

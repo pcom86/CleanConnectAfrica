@@ -196,3 +196,11 @@ public enum CleaningRequestResponseStatus
     Rejected = 4,
     Expired = 5
 }
+
+public enum VettingStatus
+{
+    NotVetted = 1,
+    InProgress = 2,
+    Vetted = 3,
+    Failed = 4
+}

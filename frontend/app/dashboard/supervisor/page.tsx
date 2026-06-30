@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { getSession, clearSession } from "@/lib/auth";
 import { getSupervisorBookings, getBookingById, checkIn, checkOut, createPostJobReport } from "@/lib/api";
 import type { User, Booking, BookingDetail, TeamMember } from "@/lib/types";
 import ThemeToggle from "../../components/ThemeToggle";
 import StatusBadge from "../components/StatusBadge";
+import Logo from "../../components/Logo";
 
 export default function SupervisorDashboardPage() {
   const router = useRouter();
@@ -213,12 +215,9 @@ export default function SupervisorDashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">CC</span>
-          </div>
-          <span className="font-bold text-xl text-gray-900 dark:text-gray-100">CleanConnect Africa</span>
-        </div>
+        <Link href="/" className="flex items-center gap-2">
+          <Logo size="sm" />
+        </Link>
         <div className="flex items-center gap-2 sm:gap-4">
           <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">
             {user?.firstName} {user?.lastName}

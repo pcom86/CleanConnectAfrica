@@ -27,7 +27,13 @@ public sealed class GetProviderSupervisorsQueryHandler(CleanConnectDbContext dbC
                 x.Skills,
                 x.ServiceZones,
                 x.Rating,
-                x.Status))
+                x.Status,
+                x.VettingStatus,
+                x.VettingNotes,
+                x.VettedAt,
+                x.IdDocumentUrl,
+                x.IdVerifiedAt,
+                x.ProfilePictureUrl))
             .ToListAsync(cancellationToken);
 
         return ApiResult<List<SupervisorProfileDto>>.Success(items);

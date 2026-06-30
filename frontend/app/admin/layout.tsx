@@ -6,6 +6,7 @@ import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { getSession, clearSession } from "@/lib/auth";
 import ThemeToggle from "../components/ThemeToggle";
+import Logo from "../components/Logo";
 
 const NAV_ITEMS = [
   { href: "/admin/dashboard", label: "Dashboard", icon: "📊" },
@@ -38,7 +39,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-brand-navy border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-gray-500 dark:text-gray-400">Loading admin portal…</p>
         </div>
       </div>
@@ -50,12 +51,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-64 flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800">
         <div className="p-6 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">CC</span>
-            </div>
-            <span className="font-bold text-lg text-gray-900 dark:text-gray-100">Admin Portal</span>
-          </div>
+          <Logo size="sm" showText={false} />
+          <span className="font-bold text-lg text-gray-900 dark:text-gray-100 ml-2">Admin Portal</span>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
@@ -67,7 +64,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 href={item.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   active
-                    ? "bg-brand-green-light text-brand-green"
+                    ? "bg-brand-navy-light text-brand-navy dark:bg-brand-navy-dark/30 dark:text-brand-navy-light"
                     : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
                 }`}
               >
@@ -103,9 +100,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="flex-1 flex flex-col">
         <header className="md:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-brand-green rounded-md flex items-center justify-center">
-              <span className="text-white font-bold text-xs">CC</span>
-            </div>
+            <Logo size="sm" showText={false} />
             <span className="font-bold text-gray-900 dark:text-gray-100">Admin</span>
           </div>
           <div className="flex items-center gap-2">
@@ -124,7 +119,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
                 className={`block px-3 py-2 rounded-lg text-sm font-medium ${
-                  pathname === item.href ? "bg-brand-green-light text-brand-green" : "text-gray-600"
+                  pathname === item.href ? "bg-brand-navy-light text-brand-navy dark:bg-brand-navy-dark/30 dark:text-brand-navy-light" : "text-gray-600"
                 }`}
               >
                 {item.icon} {item.label}

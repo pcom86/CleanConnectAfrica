@@ -22,7 +22,10 @@ public sealed record RegisterSupervisorCommand(
     Guid? ProviderId,
     EmploymentType EmploymentType,
     string Skills,
-    string ServiceZones
+    string ServiceZones,
+    string? IdNumber = null,
+    string? IdDocumentUrl = null,
+    string? ProfilePictureUrl = null
 ) : IRequest<ApiResult<UserDto>>;
 
 public sealed class RegisterSupervisorCommandValidator : AbstractValidator<RegisterSupervisorCommand>
@@ -37,6 +40,11 @@ public sealed class RegisterSupervisorCommandValidator : AbstractValidator<Regis
         RuleFor(x => x.EmploymentType).IsInEnum();
         RuleFor(x => x.Skills).NotEmpty().MaximumLength(1000);
         RuleFor(x => x.ServiceZones).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.IdNumber)
+            .NotEmpty().WithMessage("ID Number is required.")
+            .Matches(@"^\d{13}$").WithMessage("ID Number must be exactly 13 digits.");
+        RuleFor(x => x.IdDocumentUrl)
+            .NotEmpty().WithMessage("ID Document photo is required.");
     }
 }
 
@@ -72,6 +80,7 @@ public sealed class RegisterSupervisorCommandHandler(CleanConnectDbContext dbCon
             PasswordHash = request.PasswordHash,
             Role = UserRole.Supervisor,
             Status = AccountStatus.Active,
+            IdNumber = request.IdNumber,
             MustChangePassword = true,
             CreatedAt = now,
             UpdatedAt = now,
@@ -84,6 +93,8 @@ public sealed class RegisterSupervisorCommandHandler(CleanConnectDbContext dbCon
                 Skills = request.Skills,
                 ServiceZones = request.ServiceZones,
                 Status = AccountStatus.Active,
+                IdDocumentUrl = request.IdDocumentUrl,
+                ProfilePictureUrl = request.ProfilePictureUrl,
                 CreatedAt = now,
                 UpdatedAt = now
             }

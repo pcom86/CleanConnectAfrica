@@ -1,4 +1,5 @@
 using CleanConnect.Application.Auth;
+using CleanConnect.Application.BusinessProfiles;
 using MediatR;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +20,13 @@ public sealed class AuthController(ISender sender) : ControllerBase
 
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordCommand command, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(command, cancellationToken);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
+    [HttpPost("verify-liveness")]
+    public async Task<IActionResult> VerifyLiveness([FromBody] VerifyLivenessCommand command, CancellationToken cancellationToken)
     {
         var result = await sender.Send(command, cancellationToken);
         return result.Succeeded ? Ok(result) : BadRequest(result);

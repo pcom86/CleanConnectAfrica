@@ -2,16 +2,31 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getMyBusinessProfile, getProviderTeam, registerStaff, updateStaff } from "@/lib/api";
+import { getMyBusinessProfile, getProviderTeam, registerStaff, updateStaff, updateVettingStatus, verifyIdentity } from "@/lib/api";
 import { getSession } from "@/lib/auth";
 import type { TeamMember, BusinessProfile } from "@/lib/types";
 
 const EMPLOYMENT_TYPES = ["InternalStaff", "Contractor", "ProviderStaff"];
+const SKILLS_OPTIONS = [
+  "Deep Cleaning", "Window Cleaning", "Carpet Cleaning", "Office Cleaning",
+  "Move-in/Move-out Cleaning", "Kitchen Cleaning", "Bathroom Sanitization",
+  "Upholstery Cleaning", "Floor Buffing", "Disinfection Services",
+  "Laundry Services", "Post-Construction Cleaning", "Garden Cleaning",
+  "Pressure Washing", "Team Leadership", "Scheduling", "Quality Control",
+  "Client Relations", "Training & Development"
+];
 const STAFF_ROLES = [
   { value: "Cleaner",    label: "🧹 Cleaner",    color: "green" },
   { value: "Washer",     label: "🫧 Washer",     color: "blue" },
   { value: "Driver",     label: "🚗 Driver",     color: "orange" },
   { value: "Supervisor", label: "👷 Supervisor", color: "purple" },
+] as const;
+
+const VETTING_OPTIONS = [
+  { value: "NotVetted", label: "Not Vetted", color: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300" },
+  { value: "InProgress", label: "In Progress", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400" },
+  { value: "Vetted", label: "Vetted", color: "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400" },
+  { value: "Failed", label: "Failed", color: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400" },
 ] as const;
 const DEFAULT_PASSWORD = "Password@123";
 
@@ -27,6 +42,9 @@ interface MemberForm {
   skills: string;
   serviceZones: string;
   status: string;
+  idNumber: string;
+  idDocumentUrl: string;
+  profilePictureUrl: string;
 }
 
 const emptyForm: MemberForm = {
@@ -39,6 +57,9 @@ const emptyForm: MemberForm = {
   skills: "",
   serviceZones: "",
   status: "Active",
+  idNumber: "",
+  idDocumentUrl: "",
+  profilePictureUrl: "",
 };
 
 export default function TeamPage() {
@@ -78,6 +99,9 @@ export default function TeamPage() {
       skills: member.skills,
       serviceZones: member.serviceZones,
       status: member.status,
+      idNumber: "",
+      idDocumentUrl: member.idDocumentUrl ?? "",
+      profilePictureUrl: member.profilePictureUrl ?? "",
     });
     setEditingUserId(member.userId);
     setTab("edit");
@@ -85,17 +109,43 @@ export default function TeamPage() {
     setSuccess(null);
   }
 
+  function isValidSaId(id: string): boolean {
+    return /^\d{13}$/.test(id.trim());
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!provider) return;
+
+    // Validate ID for new registrations
+    if (!editingUserId) {
+      if (!form.idNumber.trim()) {
+        setError("ID Number is required.");
+        return;
+      }
+      if (!isValidSaId(form.idNumber)) {
+        setError("ID Number must be exactly 13 digits.");
+        return;
+      }
+      if (!form.idDocumentUrl) {
+        setError("ID Document photo is required.");
+        return;
+      }
+      if (!form.skills.trim()) {
+        setError("At least one skill must be selected.");
+        return;
+      }
+    }
+
     setSubmitting(true);
     setError(null);
     setSuccess(null);
 
     let res;
     if (editingUserId) {
+      const { idNumber, ...updateData } = form;
       res = await updateStaff(editingUserId, {
-        ...form,
+        ...updateData,
         providerId: provider.id,
         status: form.status ?? "Active",
       });
@@ -105,6 +155,23 @@ export default function TeamPage() {
         passwordHash: DEFAULT_PASSWORD,
         providerId: provider.id,
       });
+    }
+
+    // If registration succeeded and ID number + document provided, validate identity
+    if (!editingUserId && res.succeeded && res.data && form.idNumber.trim() && form.idDocumentUrl) {
+      const profileId = res.data.cleanerProfile?.id ?? res.data.supervisorProfile?.id;
+      const isSupervisor = res.data.role === "Supervisor";
+      if (profileId) {
+        const verifyRes = await verifyIdentity(profileId, isSupervisor, form.idNumber.trim(), form.idDocumentUrl);
+        if (!verifyRes.succeeded) {
+          setError(`Staff added but ID verification failed: ${verifyRes.error ?? "Unknown error"}`);
+          setSubmitting(false);
+          const t = await getProviderTeam(provider.id);
+          if (t.succeeded && t.data) setTeam(t.data);
+          setTab("team");
+          return;
+        }
+      }
     }
 
     if (res.succeeded && res.data) {
@@ -214,12 +281,119 @@ export default function TeamPage() {
                 value={form.serviceZones} onChange={e => setForm(f => ({ ...f, serviceZones: e.target.value }))} />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Skills</label>
-              <input required placeholder={form.staffRole === "Supervisor" ? "e.g. Team leadership, Scheduling" : "e.g. Deep cleaning, Window cleaning"}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-green"
-                value={form.skills} onChange={e => setForm(f => ({ ...f, skills: e.target.value }))} />
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Skills <span className="text-red-500">*</span></label>
+              <div className="border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-800 max-h-48 overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {SKILLS_OPTIONS.map(skill => {
+                    const selected = form.skills.split(",").map(s => s.trim()).filter(Boolean).includes(skill);
+                    return (
+                      <label key={skill} className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-xs transition ${selected ? 'bg-brand-green/10 text-brand-green font-medium' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => {
+                            const current = form.skills.split(",").map(s => s.trim()).filter(Boolean);
+                            const next = current.includes(skill)
+                              ? current.filter(s => s !== skill)
+                              : [...current, skill];
+                            setForm(f => ({ ...f, skills: next.join(", ") }));
+                          }}
+                          className="accent-brand-green"
+                        />
+                        <span className="truncate">{skill}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              {form.skills && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Selected: {form.skills}</p>
+              )}
             </div>
           </div>
+
+          {/* ID Document Section */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">ID Document <span className="text-red-500">*</span></span>
+              <span className="text-xs text-gray-400">(required — will be verified against Identifii)</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">ID Number <span className="text-red-500">*</span></label>
+                <input type="text" placeholder="e.g. 9201011234087" maxLength={13}
+                  className={`w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-green ${form.idNumber && !isValidSaId(form.idNumber) ? 'border-red-400' : 'border-gray-300 dark:border-gray-600'}`}
+                  value={form.idNumber} onChange={e => setForm(f => ({ ...f, idNumber: e.target.value.replace(/\D/g, '').slice(0, 13) }))} />
+                {form.idNumber && !isValidSaId(form.idNumber) && (
+                  <p className="text-xs text-red-500 mt-1">Must be exactly 13 digits</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">ID Document Photo <span className="text-red-500">*</span></label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setForm(f => ({ ...f, idDocumentUrl: reader.result as string }));
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                  className="w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-brand-navy-light file:text-brand-navy hover:file:bg-brand-navy-light/80"
+                />
+              </div>
+            </div>
+            {form.idDocumentUrl && (
+              <div className="relative">
+                <img src={form.idDocumentUrl} alt="ID Document preview" className="max-h-40 rounded-lg border border-gray-200 dark:border-gray-700" />
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, idDocumentUrl: "" }))}
+                  className="absolute top-1 right-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded hover:bg-red-600"
+                >Remove</button>
+              </div>
+            )}
+          </div>
+
+          {/* Profile Picture */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Profile Picture</span>
+              <span className="text-xs text-gray-400">(optional)</span>
+            </div>
+            <div>
+              <input
+                type="file"
+                accept="image/*"
+                capture="user"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onloadend = () => {
+                    setForm(f => ({ ...f, profilePictureUrl: reader.result as string }));
+                  };
+                  reader.readAsDataURL(file);
+                }}
+                className="w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-brand-navy-light file:text-brand-navy hover:file:bg-brand-navy-light/80"
+              />
+            </div>
+            {form.profilePictureUrl && (
+              <div className="relative inline-block">
+                <img src={form.profilePictureUrl} alt="Profile preview" className="h-24 w-24 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700" />
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, profilePictureUrl: "" }))}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full hover:bg-red-600 flex items-center justify-center"
+                >×</button>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-between">
             {!editingUserId && <p className="text-xs text-gray-400">Default password: <span className="font-mono font-medium">{DEFAULT_PASSWORD}</span></p>}
             <button type="submit" disabled={submitting}
@@ -247,7 +421,26 @@ export default function TeamPage() {
                 {r.members.map(m => (
                   <MemberCard key={m.profileId} member={m}
                     accent={r.color as "green" | "blue" | "orange" | "purple"}
-                    onEdit={() => startEdit(m)} />
+                    onEdit={() => startEdit(m)}
+                    onUpdateVetting={async (newStatus, notes) => {
+                      if (!provider) return;
+                      const res = await updateVettingStatus(m.profileId, m.memberRole === "Supervisor", newStatus, notes);
+                      if (res.succeeded && res.data) {
+                        setTeam(prev => prev.map(tm => tm.profileId === m.profileId ? res.data! : tm));
+                      } else {
+                        setError(res.error ?? "Failed to update vetting status.");
+                      }
+                    }}
+                    onVerifyId={async (idNumber, idDocumentBase64) => {
+                      if (!provider) return;
+                      const res = await verifyIdentity(m.profileId, m.memberRole === "Supervisor", idNumber, idDocumentBase64);
+                      if (res.succeeded && res.data) {
+                        setTeam(prev => prev.map(tm => tm.profileId === m.profileId ? res.data! : tm));
+                      } else {
+                        setError(res.error ?? "Identity verification failed.");
+                      }
+                    }}
+                  />
                 ))}
               </div>
             </section>
@@ -258,19 +451,121 @@ export default function TeamPage() {
   );
 }
 
-function MemberCard({ member, accent, onEdit }: { member: TeamMember; accent: "green" | "blue" | "orange" | "purple"; onEdit: () => void }) {
+function LivenessBadge({ member }: { member: TeamMember }) {
+  if (member.idVerifiedAt) {
+    return (
+      <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+        Liveness Required
+      </span>
+    );
+  }
+  return null;
+}
+
+function VerifyIdButton({ member, onVerifyId, vettingSaving, setVettingSaving }: {
+  member: TeamMember;
+  onVerifyId?: (idNumber: string, idDocumentBase64: string) => Promise<void>;
+  vettingSaving: boolean;
+  setVettingSaving: (v: boolean) => void;
+}) {
+  const [show, setShow] = useState(false);
+  const [idNumber, setIdNumber] = useState("");
+  const [idDoc, setIdDoc] = useState(member.idDocumentUrl ?? "");
+
+  if (!onVerifyId) return null;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setShow(s => !s)}
+        disabled={vettingSaving}
+        className="text-xs font-medium px-2 py-1 rounded-full bg-brand-navy text-white hover:bg-brand-navy-dark transition disabled:opacity-50"
+      >Verify ID</button>
+      {show && (
+        <div className="absolute z-10 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-3 space-y-2">
+          <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">Verify Identity</p>
+          <input
+            type="text"
+            placeholder="ID Number"
+            value={idNumber}
+            onChange={e => setIdNumber(e.target.value)}
+            className="w-full text-xs px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-brand-green"
+          />
+          {!member.idDocumentUrl && (
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onloadend = () => setIdDoc(reader.result as string);
+                reader.readAsDataURL(file);
+              }}
+              className="w-full text-xs text-gray-600 dark:text-gray-300"
+            />
+          )}
+          {idDoc && <p className="text-xs text-green-600 dark:text-green-400">Document attached</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                if (!idNumber.trim() || !idDoc) return;
+                setVettingSaving(true);
+                await onVerifyId(idNumber.trim(), idDoc);
+                setVettingSaving(false);
+                setShow(false);
+              }}
+              disabled={vettingSaving || !idNumber.trim() || !idDoc}
+              className="flex-1 text-xs bg-brand-green text-white px-2 py-1 rounded hover:bg-brand-green-dark disabled:opacity-50"
+            >Submit</button>
+            <button
+              type="button"
+              onClick={() => setShow(false)}
+              className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-2 py-1 rounded"
+            >Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MemberCard({ member, accent, onEdit, onUpdateVetting, onVerifyId }: {
+  member: TeamMember;
+  accent: "green" | "blue" | "orange" | "purple";
+  onEdit: () => void;
+  onUpdateVetting?: (newStatus: string, notes: string | null) => Promise<void>;
+  onVerifyId?: (idNumber: string, idDocumentBase64: string) => Promise<void>;
+}) {
   const colors: Record<string, string> = {
     green:  "border-l-brand-green bg-green-50 dark:bg-green-900/10",
     blue:   "border-l-blue-500 bg-blue-50 dark:bg-blue-900/10",
     orange: "border-l-orange-400 bg-orange-50 dark:bg-orange-900/10",
     purple: "border-l-purple-500 bg-purple-50 dark:bg-purple-900/10",
   };
+  const vetting = VETTING_OPTIONS.find(v => v.value === member.vettingStatus) ?? VETTING_OPTIONS[0];
+  const [showVettingDropdown, setShowVettingDropdown] = useState(false);
+  const [vettingNotes, setVettingNotes] = useState("");
+  const [vettingSaving, setVettingSaving] = useState(false);
+
   return (
     <div className={`border border-gray-200 dark:border-gray-700 border-l-4 rounded-xl p-4 ${colors[accent]}`}>
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{member.name}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{member.employmentType} · {member.serviceZones}</p>
+        <div className="flex items-center gap-3">
+          {member.profilePictureUrl ? (
+            <img src={member.profilePictureUrl} alt={member.name} className="h-10 w-10 rounded-full object-cover border border-gray-200 dark:border-gray-600" />
+          ) : (
+            <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500 dark:text-gray-400">
+              {member.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          <div>
+            <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{member.name}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{member.employmentType} · {member.serviceZones}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {member.rating > 0 && (
@@ -280,6 +575,71 @@ function MemberCard({ member, accent, onEdit }: { member: TeamMember; accent: "g
         </div>
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">{member.skills}</p>
+
+      {/* ID Verification Badge */}
+      <div className="mt-2 flex items-center gap-2">
+        {member.idDocumentUrl ? (
+          member.idVerifiedAt ? (
+            <>
+              <span className="text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400">ID Verified</span>
+              <LivenessBadge member={member} />
+            </>
+          ) : (
+            <>
+              <span className="text-xs font-medium px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400">ID Pending</span>
+              <VerifyIdButton member={member} onVerifyId={onVerifyId} vettingSaving={vettingSaving} setVettingSaving={setVettingSaving} />
+            </>
+          )
+        ) : (
+          <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">No ID Doc</span>
+        )}
+        {vettingSaving && <div className="animate-spin w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full" />}
+      </div>
+
+      {/* Vetting Badge */}
+      <div className="mt-2 flex items-center gap-2">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => onUpdateVetting && setShowVettingDropdown(s => !s)}
+            className={`text-xs font-medium px-2 py-1 rounded-full ${vetting.color} ${onUpdateVetting ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
+          >
+            {vetting.label}
+          </button>
+          {showVettingDropdown && onUpdateVetting && (
+            <div className="absolute z-10 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden">
+              {VETTING_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={async () => {
+                    setVettingSaving(true);
+                    await onUpdateVetting(opt.value, vettingNotes.trim() || null);
+                    setShowVettingDropdown(false);
+                    setVettingSaving(false);
+                  }}
+                  disabled={vettingSaving || opt.value === member.vettingStatus}
+                  className={`w-full text-left px-3 py-2 text-xs ${opt.value === member.vettingStatus ? "bg-gray-50 dark:bg-gray-700 font-semibold" : "hover:bg-gray-50 dark:hover:bg-gray-700"} disabled:opacity-50`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+              <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-700">
+                <input
+                  type="text"
+                  placeholder="Vetting notes (optional)"
+                  value={vettingNotes}
+                  onChange={e => setVettingNotes(e.target.value)}
+                  className="w-full text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-brand-green"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        {vettingSaving && (
+          <div className="animate-spin w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full" />
+        )}
+      </div>
     </div>
   );
 }

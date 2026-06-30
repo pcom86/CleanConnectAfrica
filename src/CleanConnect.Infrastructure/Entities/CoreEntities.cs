@@ -12,6 +12,8 @@ public sealed class User
     public AccountStatus Status { get; set; } = AccountStatus.Active;
     public string? IdNumber { get; set; }
     public bool MustChangePassword { get; set; } = false;
+    public bool LivenessRequired { get; set; } = false;
+    public DateTimeOffset? LivenessVerifiedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
@@ -172,6 +174,13 @@ public sealed class CleanerProfile
     public string ServiceZones { get; set; } = string.Empty;
     public decimal Rating { get; set; }
     public AccountStatus Status { get; set; } = AccountStatus.Active;
+    public VettingStatus VettingStatus { get; set; } = VettingStatus.NotVetted;
+    public string? VettingNotes { get; set; }
+    public DateTimeOffset? VettedAt { get; set; }
+    public Guid? VettedByUserId { get; set; }
+    public string? IdDocumentUrl { get; set; }
+    public DateTimeOffset? IdVerifiedAt { get; set; }
+    public string? ProfilePictureUrl { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
@@ -229,6 +238,13 @@ public sealed class SupervisorProfile
     public string ServiceZones { get; set; } = string.Empty;
     public decimal Rating { get; set; }
     public AccountStatus Status { get; set; } = AccountStatus.Active;
+    public VettingStatus VettingStatus { get; set; } = VettingStatus.NotVetted;
+    public string? VettingNotes { get; set; }
+    public DateTimeOffset? VettedAt { get; set; }
+    public Guid? VettedByUserId { get; set; }
+    public string? IdDocumentUrl { get; set; }
+    public DateTimeOffset? IdVerifiedAt { get; set; }
+    public string? ProfilePictureUrl { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 

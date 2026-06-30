@@ -18,7 +18,10 @@ public sealed record RegisterCleanerCommand(
     EmploymentType EmploymentType,
     string Skills,
     string ServiceZones,
-    StaffRole StaffRole = StaffRole.Cleaner
+    StaffRole StaffRole = StaffRole.Cleaner,
+    string? IdNumber = null,
+    string? IdDocumentUrl = null,
+    string? ProfilePictureUrl = null
 ) : IRequest<ApiResult<UserDto>>;
 
 public sealed class RegisterCleanerCommandValidator : AbstractValidator<RegisterCleanerCommand>
@@ -34,6 +37,11 @@ public sealed class RegisterCleanerCommandValidator : AbstractValidator<Register
         RuleFor(x => x.Skills).NotEmpty().MaximumLength(1000);
         RuleFor(x => x.ServiceZones).NotEmpty().MaximumLength(500);
         RuleFor(x => x.StaffRole).IsInEnum();
+        RuleFor(x => x.IdNumber)
+            .NotEmpty().WithMessage("ID Number is required.")
+            .Matches(@"^\d{13}$").WithMessage("ID Number must be exactly 13 digits.");
+        RuleFor(x => x.IdDocumentUrl)
+            .NotEmpty().WithMessage("ID Document photo is required.");
     }
 }
 
@@ -69,6 +77,7 @@ public sealed class RegisterCleanerCommandHandler(CleanConnectDbContext dbContex
             PasswordHash = request.PasswordHash,
             Role = UserRole.Cleaner,
             Status = AccountStatus.Active,
+            IdNumber = request.IdNumber,
             CreatedAt = now,
             UpdatedAt = now,
             CleanerProfile = new CleanerProfile
@@ -81,6 +90,8 @@ public sealed class RegisterCleanerCommandHandler(CleanConnectDbContext dbContex
                 Skills = request.Skills,
                 ServiceZones = request.ServiceZones,
                 Status = AccountStatus.Active,
+                IdDocumentUrl = request.IdDocumentUrl,
+                ProfilePictureUrl = request.ProfilePictureUrl,
                 CreatedAt = now,
                 UpdatedAt = now
             }
@@ -105,7 +116,7 @@ public sealed class GetProviderCleanersQueryHandler(CleanConnectDbContext dbCont
         var items = await dbContext.CleanerProfiles
             .AsNoTracking()
             .Where(x => x.ProviderId == request.ProviderId && x.Status == AccountStatus.Active)
-            .Select(x => new CleanerProfileDto(x.Id, x.ProviderId, x.EmploymentType, x.StaffRole, x.Skills, x.ServiceZones, x.Rating, x.Status))
+            .Select(x => new CleanerProfileDto(x.Id, x.ProviderId, x.EmploymentType, x.StaffRole, x.Skills, x.ServiceZones, x.Rating, x.Status, x.VettingStatus, x.VettingNotes, x.VettedAt, x.IdDocumentUrl, x.IdVerifiedAt, x.ProfilePictureUrl))
             .ToListAsync(cancellationToken);
 
         return ApiResult<List<CleanerProfileDto>>.Success(items);
@@ -135,7 +146,11 @@ public sealed class GetProviderTeamQueryHandler(CleanConnectDbContext dbContext)
                 x.Rating,
                 x.User.Email,
                 x.User.PhoneNumber,
-                x.Status.ToString()))
+                x.Status.ToString(),
+                x.VettingStatus.ToString(),
+                x.IdDocumentUrl,
+                x.IdVerifiedAt,
+                x.ProfilePictureUrl))
             .ToListAsync(cancellationToken);
 
         var supervisors = await dbContext.SupervisorProfiles
@@ -153,9 +168,158 @@ public sealed class GetProviderTeamQueryHandler(CleanConnectDbContext dbContext)
                 x.Rating,
                 x.User.Email,
                 x.User.PhoneNumber,
-                x.Status.ToString()))
+                x.Status.ToString(),
+                x.VettingStatus.ToString(),
+                x.IdDocumentUrl,
+                x.IdVerifiedAt,
+                x.ProfilePictureUrl))
             .ToListAsync(cancellationToken);
 
         return ApiResult<List<TeamMemberDto>>.Success(cleaners.Concat(supervisors).ToList());
+    }
+}
+
+// --- Update Vetting Status ---
+public sealed record UpdateVettingStatusCommand(
+    Guid ProfileId,
+    bool IsSupervisor,
+    VettingStatus NewStatus,
+    string? Notes) : IRequest<ApiResult<TeamMemberDto>>;
+
+public sealed class UpdateVettingStatusCommandValidator : AbstractValidator<UpdateVettingStatusCommand>
+{
+    public UpdateVettingStatusCommandValidator()
+    {
+        RuleFor(x => x.ProfileId).NotEmpty();
+        RuleFor(x => x.NewStatus).IsInEnum();
+    }
+}
+
+public sealed class UpdateVettingStatusCommandHandler(CleanConnectDbContext dbContext)
+    : IRequestHandler<UpdateVettingStatusCommand, ApiResult<TeamMemberDto>>
+{
+    public async Task<ApiResult<TeamMemberDto>> Handle(UpdateVettingStatusCommand request, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        TeamMemberDto? dto = null;
+
+        if (request.IsSupervisor)
+        {
+            var profile = await dbContext.SupervisorProfiles
+                .Include(x => x.User)
+                .SingleOrDefaultAsync(x => x.Id == request.ProfileId, cancellationToken);
+
+            if (profile is null)
+                return ApiResult<TeamMemberDto>.Failure("Profile was not found.");
+
+            profile.VettingStatus = request.NewStatus;
+            profile.VettingNotes = request.Notes;
+            profile.VettedAt = request.NewStatus == VettingStatus.Vetted ? now : profile.VettedAt;
+            profile.UpdatedAt = now;
+
+            dto = new TeamMemberDto(
+                profile.Id, profile.UserId,
+                $"{profile.User.FirstName} {profile.User.LastName}",
+                "Supervisor", profile.EmploymentType.ToString(),
+                profile.Skills, profile.ServiceZones, profile.Rating,
+                profile.User.Email, profile.User.PhoneNumber,
+                profile.Status.ToString(), profile.VettingStatus.ToString(),
+                profile.IdDocumentUrl, profile.IdVerifiedAt, profile.ProfilePictureUrl);
+        }
+        else
+        {
+            var profile = await dbContext.CleanerProfiles
+                .Include(x => x.User)
+                .SingleOrDefaultAsync(x => x.Id == request.ProfileId, cancellationToken);
+
+            if (profile is null)
+                return ApiResult<TeamMemberDto>.Failure("Profile was not found.");
+
+            profile.VettingStatus = request.NewStatus;
+            profile.VettingNotes = request.Notes;
+            profile.VettedAt = request.NewStatus == VettingStatus.Vetted ? now : profile.VettedAt;
+            profile.UpdatedAt = now;
+
+            dto = new TeamMemberDto(
+                profile.Id, profile.UserId,
+                $"{profile.User.FirstName} {profile.User.LastName}",
+                profile.StaffRole.ToString(), profile.EmploymentType.ToString(),
+                profile.Skills, profile.ServiceZones, profile.Rating,
+                profile.User.Email, profile.User.PhoneNumber,
+                profile.Status.ToString(), profile.VettingStatus.ToString(),
+                profile.IdDocumentUrl, profile.IdVerifiedAt, profile.ProfilePictureUrl);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return ApiResult<TeamMemberDto>.Success(dto);
+    }
+}
+
+// --- Verify ID Document ---
+public sealed record VerifyIdDocumentCommand(
+    Guid ProfileId,
+    bool IsSupervisor) : IRequest<ApiResult<TeamMemberDto>>;
+
+public sealed class VerifyIdDocumentCommandValidator : AbstractValidator<VerifyIdDocumentCommand>
+{
+    public VerifyIdDocumentCommandValidator()
+    {
+        RuleFor(x => x.ProfileId).NotEmpty();
+    }
+}
+
+public sealed class VerifyIdDocumentCommandHandler(CleanConnectDbContext dbContext)
+    : IRequestHandler<VerifyIdDocumentCommand, ApiResult<TeamMemberDto>>
+{
+    public async Task<ApiResult<TeamMemberDto>> Handle(VerifyIdDocumentCommand request, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        TeamMemberDto? dto = null;
+
+        if (request.IsSupervisor)
+        {
+            var profile = await dbContext.SupervisorProfiles
+                .Include(x => x.User)
+                .SingleOrDefaultAsync(x => x.Id == request.ProfileId, cancellationToken);
+
+            if (profile is null)
+                return ApiResult<TeamMemberDto>.Failure("Profile was not found.");
+
+            profile.IdVerifiedAt = now;
+            profile.UpdatedAt = now;
+
+            dto = new TeamMemberDto(
+                profile.Id, profile.UserId,
+                $"{profile.User.FirstName} {profile.User.LastName}",
+                "Supervisor", profile.EmploymentType.ToString(),
+                profile.Skills, profile.ServiceZones, profile.Rating,
+                profile.User.Email, profile.User.PhoneNumber,
+                profile.Status.ToString(), profile.VettingStatus.ToString(),
+                profile.IdDocumentUrl, profile.IdVerifiedAt, profile.ProfilePictureUrl);
+        }
+        else
+        {
+            var profile = await dbContext.CleanerProfiles
+                .Include(x => x.User)
+                .SingleOrDefaultAsync(x => x.Id == request.ProfileId, cancellationToken);
+
+            if (profile is null)
+                return ApiResult<TeamMemberDto>.Failure("Profile was not found.");
+
+            profile.IdVerifiedAt = now;
+            profile.UpdatedAt = now;
+
+            dto = new TeamMemberDto(
+                profile.Id, profile.UserId,
+                $"{profile.User.FirstName} {profile.User.LastName}",
+                profile.StaffRole.ToString(), profile.EmploymentType.ToString(),
+                profile.Skills, profile.ServiceZones, profile.Rating,
+                profile.User.Email, profile.User.PhoneNumber,
+                profile.Status.ToString(), profile.VettingStatus.ToString(),
+                profile.IdDocumentUrl, profile.IdVerifiedAt, profile.ProfilePictureUrl);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return ApiResult<TeamMemberDto>.Success(dto);
     }
 }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createBusinessProfile, verifyCompany, listMembershipPlans } from "@/lib/api";
 import { getSession, clearSession } from "@/lib/auth";
 import type { ServiceCategory, BusinessProfile, MembershipPlan } from "@/lib/types";
+import Logo from "../components/Logo";
 
 const SERVICE_OPTIONS: { value: ServiceCategory; label: string; icon: string; description: string }[] = [
   { value: "Cleaning", label: "Cleaning", icon: "🧹", description: "Home, office & commercial cleaning" },
@@ -274,12 +275,7 @@ export default function SetupBusinessPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-brand-green rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">CC</span>
-          </div>
-          <span className="font-bold text-xl text-gray-900 dark:text-gray-100">CleanConnect Africa</span>
-        </div>
+        <Logo size="sm" />
         <Link href="/dashboard" className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
           Skip for now →
         </Link>

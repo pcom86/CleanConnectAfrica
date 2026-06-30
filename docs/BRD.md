@@ -329,16 +329,24 @@ The table below lists every feature across all phases with its current implement
 | 41 | AI Route Optimisation | ❌ | ❌ | ❌ | 📋 Planned — Phase 4 |
 | 42 | Carbon Footprint Tracking | ❌ | ❌ | N/A | 📋 Planned — Phase 4 |
 | 43 | Marketplace Advertising | ❌ | ❌ | N/A | 📋 Planned — Phase 4 |
+| 44 | Employee Vetting | ❌ | ❌ | ❌ | 📋 Planned — Phase 2 |
+| 45 | Staff Images | ❌ | ❌ | N/A | 📋 Planned — Phase 2 |
+| 46 | Dispatched Vehicle Details | ❌ | ❌ | N/A | 📋 Planned — Phase 2 |
+| 47 | Blacklist / Block / Suspend Companies | ❌ | ❌ | N/A | 📋 Planned — Phase 2 |
+| 48 | Area Availability Check | ❌ | ❌ | ❌ | 📋 Planned — Phase 2 |
+| 49 | Bundle Service Discounts | ❌ | ❌ | N/A | 📋 Planned — Phase 2 |
+| 50 | Service Catalog — Full Listing & Pricing | ✅ | ❌ | N/A | 🔧 Backend Only — seeded data exists; no customer-facing catalog page |
+| 51 | Provider Whitelist / Direct Booking | ❌ | ❌ | N/A | 📋 Planned — Phase 2 |
 
 **Summary:**
 
 | Status | Count | Share |
 |---|---|---|
-| ✅ Complete | 10 | 23% |
-| ⚠️ Partial | 7 | 16% |
-| 🔧 Backend Only | 6 | 14% |
-| 📋 Planned | 20 | 47% |
-| **Total** | **43** | |
+| ✅ Complete | 10 | 20% |
+| ⚠️ Partial | 7 | 14% |
+| 🔧 Backend Only | 7 | 14% |
+| 📋 Planned | 27 | 53% |
+| **Total** | **51** | |
 
 > **MVP Delivery Status:** 23 of 43 features (53%) have at least partial implementation. 10 features (23%) are fully complete end-to-end. The primary gaps before commercial launch are: payment gateway, live liveness/face-match API, review submission UI, and job operations frontend (check-in/out, checklists).
 
@@ -358,6 +366,14 @@ The table below lists every feature across all phases with its current implement
 | **Review & Rating System — UI** | Medium | Customer-facing review submission form post-job. Provider and cleaner public profiles with aggregate ratings. |
 | **Address Geocoding** | Medium | Auto-populate latitude/longitude on address save using Google Maps Geocoding API. |
 | **Booking Recurrence UI** | Medium | Full recurring booking management — pause, cancel single occurrence, cancel series. |
+| **Employee Vetting** | High | Background check workflow for cleaners and provider staff. Status tracking: `NotVetted` → `InProgress` → `Vetted` / `Failed`. Integration with MIE or Afiswitch. |
+| **Staff Images** | Medium | Upload and display staff profile photos. Store as CDN / blob URLs on `CleanerProfile` and `SupervisorProfile`. |
+| **Dispatched Vehicle Details** | Medium | Track vehicle make, model, registration, and colour assigned to a dispatched team. Display to customer in booking details. |
+| **Blacklist / Block / Suspend Companies** | High | Admin and customer ability to blacklist providers. Blocked providers are excluded from marketplace and search results. |
+| **Area Availability Check** | High | Customer enters address before booking; platform returns whether any provider covers that area (within service radius). |
+| **Bundle Service Discounts** | Medium | Automatic discount calculation when a customer books 2+ services in one combo booking. Configurable discount % per bundle in admin. |
+| **Provider Whitelist / Direct Booking** | Medium | Customers can save favourite providers to a whitelist and re-book them directly without marketplace search. |
+| **Service Catalog Page** | Medium | Public, customer-facing service listing page with full descriptions, pricing, and estimated durations. |
 
 ### Phase 3 — Q4 2026
 

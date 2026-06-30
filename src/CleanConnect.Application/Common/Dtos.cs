@@ -4,7 +4,7 @@ namespace CleanConnect.Application.Common;
 
 public sealed record ServiceDto(Guid Id, string Name, string Description, string Category, decimal BasePrice, int EstimatedDurationMinutes, int RequiredCleaners);
 
-public sealed record UserDto(Guid Id, string FirstName, string LastName, string Email, string PhoneNumber, UserRole Role, AccountStatus Status, string? IdNumber, bool MustChangePassword, CustomerProfileDto? CustomerProfile, CleanerProfileDto? CleanerProfile, SupervisorProfileDto? SupervisorProfile);
+public sealed record UserDto(Guid Id, string FirstName, string LastName, string Email, string PhoneNumber, UserRole Role, AccountStatus Status, string? IdNumber, bool MustChangePassword, bool LivenessRequired, DateTimeOffset? LivenessVerifiedAt, CustomerProfileDto? CustomerProfile, CleanerProfileDto? CleanerProfile, SupervisorProfileDto? SupervisorProfile);
 
 public sealed record CustomerProfileDto(Guid Id, CustomerType CustomerType, string? CompanyName, string? VatNumber, string? BillingAddress, string? DefaultPaymentMethodReference, List<AddressDto> Addresses);
 
@@ -18,7 +18,7 @@ public sealed record CustomerBookingDto(Guid Id, Guid ServiceId, string ServiceN
 
 public sealed record ProviderBookingDto(Guid Id, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, decimal? AddressLatitude, decimal? AddressLongitude, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt, List<BookingServiceDto>? Services = null);
 
-public sealed record CleanerProfileDto(Guid Id, Guid? ProviderId, EmploymentType EmploymentType, StaffRole StaffRole, string Skills, string ServiceZones, decimal Rating, AccountStatus Status);
+public sealed record CleanerProfileDto(Guid Id, Guid? ProviderId, EmploymentType EmploymentType, StaffRole StaffRole, string Skills, string ServiceZones, decimal Rating, AccountStatus Status, VettingStatus VettingStatus, string? VettingNotes, DateTimeOffset? VettedAt, string? IdDocumentUrl, DateTimeOffset? IdVerifiedAt, string? ProfilePictureUrl);
 
 public sealed record BookingDto(Guid Id, Guid CustomerProfileId, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt, bool IsRecurring = false, string? RecurrenceFrequency = null, Guid? RecurrenceGroupId = null, int? RecurrenceIndex = null, List<BookingServiceDto>? Services = null);
 
@@ -69,7 +69,7 @@ public sealed record CleaningJobDetailDto(
     DateTimeOffset? CompletedAt
 );
 
-public sealed record TeamMemberDto(Guid ProfileId, Guid UserId, string Name, string MemberRole, string EmploymentType, string Skills, string ServiceZones, decimal Rating, string Email, string PhoneNumber, string Status);
+public sealed record TeamMemberDto(Guid ProfileId, Guid UserId, string Name, string MemberRole, string EmploymentType, string Skills, string ServiceZones, decimal Rating, string Email, string PhoneNumber, string Status, string VettingStatus, string? IdDocumentUrl, DateTimeOffset? IdVerifiedAt, string? ProfilePictureUrl);
 
 public sealed record AssignmentDto(Guid Id, Guid? CleanerProfileId, string? CleanerName, Guid? ProviderId, string? ProviderName, AssignmentType AssignedType, AssignmentStatus Status, DateTimeOffset AssignedAt, DateTimeOffset? AcceptedAt, List<TeamMemberDto>? TeamMembers = null, string? SupervisorName = null);
 
@@ -99,7 +99,7 @@ public sealed record CleaningReportDto(Guid BookingId, string CompletionStatus, 
 
 public sealed record MembershipPlanDto(Guid Id, string Name, string Description, decimal JoiningFeeAmount, decimal RecurringFeeAmount, string BillingCycle, decimal DefaultCommissionRate, bool IsActive);
 
-public sealed record SupervisorProfileDto(Guid Id, Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, decimal Rating, AccountStatus Status);
+public sealed record SupervisorProfileDto(Guid Id, Guid? ProviderId, EmploymentType EmploymentType, string Skills, string ServiceZones, decimal Rating, AccountStatus Status, VettingStatus VettingStatus, string? VettingNotes, DateTimeOffset? VettedAt, string? IdDocumentUrl, DateTimeOffset? IdVerifiedAt, string? ProfilePictureUrl);
 
 public sealed record JobCheckInDto(Guid Id, Guid BookingId, Guid UserId, string UserName, DateTimeOffset CheckInTime, decimal? Latitude, decimal? Longitude, string? PhotoUrl, List<string> PhotoUrls, string? Notes);
 

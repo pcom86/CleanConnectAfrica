@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { loginUser } from "@/lib/api";
 import { saveSession } from "@/lib/auth";
 import ThemeToggle from "../components/ThemeToggle";
+import Logo from "../components/Logo";
 
 function LoginForm() {
   const router = useRouter();
@@ -24,7 +25,11 @@ function LoginForm() {
       const result = await loginUser({ email: form.email, password: form.password });
       if (result.succeeded && result.data) {
         saveSession(result.data);
-        router.push(result.data.role === "Admin" ? "/admin/dashboard" : "/dashboard");
+        if (result.data.livenessRequired && !result.data.livenessVerifiedAt) {
+          router.push("/liveness-check");
+        } else {
+          router.push(result.data.role === "Admin" ? "/admin/dashboard" : "/dashboard");
+        }
       } else if (result.errorCode === "MustChangePassword") {
         router.push(`/change-password?email=${encodeURIComponent(form.email)}&password=${encodeURIComponent(form.password)}`);
       } else {
@@ -46,10 +51,7 @@ function LoginForm() {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <Link href="/" className="inline-flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 bg-brand-green rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold">CC</span>
-              </div>
-              <span className="font-bold text-2xl text-gray-900 dark:text-gray-100">CleanConnect</span>
+              <Logo size="md" />
             </Link>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome back</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">Log in to your account</p>

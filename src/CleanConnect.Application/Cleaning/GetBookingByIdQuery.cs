@@ -79,7 +79,7 @@ public sealed class GetBookingByIdQueryHandler(CleanConnectDbContext dbContext) 
 
         var teamMembers = teamCleanerIds
             .Select(id => cleaners.TryGetValue(id, out var cp)
-                ? new TeamMemberDto(cp.Id, cp.UserId, $"{cp.User.FirstName} {cp.User.LastName}", "Cleaner", cp.EmploymentType.ToString(), cp.Skills, cp.ServiceZones, cp.Rating, cp.User.Email, cp.User.PhoneNumber, cp.Status.ToString())
+                ? new TeamMemberDto(cp.Id, cp.UserId, $"{cp.User.FirstName} {cp.User.LastName}", "Cleaner", cp.EmploymentType.ToString(), cp.Skills, cp.ServiceZones, cp.Rating, cp.User.Email, cp.User.PhoneNumber, cp.Status.ToString(), cp.VettingStatus.ToString(), cp.IdDocumentUrl, cp.IdVerifiedAt, cp.ProfilePictureUrl)
                 : null)
             .Where(x => x is not null)
             .Select(x => x!)

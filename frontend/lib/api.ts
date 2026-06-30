@@ -356,6 +356,10 @@ export async function updateBooking(bookingId: string, data: {
   return put<Booking>(`/api/v1/cleaning-bookings/${bookingId}`, data);
 }
 
+export async function updateVettingStatus(profileId: string, isSupervisor: boolean, newStatus: string, notes?: string | null): Promise<ApiResult<TeamMember>> {
+  return put<TeamMember>(`/api/v1/staff/${profileId}/vetting`, { isSupervisor, newStatus, notes });
+}
+
 export async function completeBooking(bookingId: string, afterPhotos: string[], cleanerNotes: string, completedChecklistItems?: string[]): Promise<ApiResult<Booking>> {
   return post<Booking>(`/api/v1/cleaning-bookings/${bookingId}/complete`, { afterPhotos, cleanerNotes, completedChecklistItems });
 }
@@ -393,6 +397,9 @@ export async function registerStaff(data: {
   skills: string;
   serviceZones: string;
   staffRole: string;
+  idNumber?: string;
+  idDocumentUrl?: string;
+  profilePictureUrl?: string;
 }): Promise<ApiResult<User>> {
   return post<User>("/api/v1/staff", data);
 }
@@ -408,8 +415,22 @@ export async function updateStaff(userId: string, data: {
   status: string;
   staffRole: string;
   providerId: string | null;
+  idDocumentUrl?: string;
+  profilePictureUrl?: string;
 }): Promise<ApiResult<User>> {
   return put<User>(`/api/v1/staff/${userId}`, data);
+}
+
+export async function verifyIdDocument(profileId: string, isSupervisor: boolean): Promise<ApiResult<TeamMember>> {
+  return put<TeamMember>(`/api/v1/staff/${profileId}/verify-id`, { isSupervisor });
+}
+
+export async function verifyIdentity(profileId: string, isSupervisor: boolean, idNumber: string, idDocumentBase64: string): Promise<ApiResult<TeamMember>> {
+  return post<TeamMember>(`/api/v1/staff/${profileId}/verify-identity`, { isSupervisor, idNumber, idDocumentBase64 });
+}
+
+export async function verifyLiveness(userId: string, selfieBase64: string): Promise<ApiResult<User>> {
+  return post<User>("/api/v1/auth/verify-liveness", { userId, selfieBase64 });
 }
 
 export async function getProviderSupervisors(providerId: string): Promise<ApiResult<SupervisorProfile[]>> {

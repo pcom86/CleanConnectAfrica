@@ -3,6 +3,7 @@ using System;
 using CleanConnect.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CleanConnect.Infrastructure.Migrations
 {
     [DbContext(typeof(CleanConnectDbContext))]
-    partial class CleanConnectDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260630103021_AddEmployeeVetting")]
+    partial class AddEmployeeVetting
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -445,15 +448,6 @@ namespace CleanConnect.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
-
-                    b.Property<string>("IdDocumentUrl")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset?>("IdVerifiedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ProfilePictureUrl")
-                        .HasColumnType("text");
 
                     b.Property<Guid?>("ProviderId")
                         .HasColumnType("uuid");
@@ -1606,15 +1600,6 @@ namespace CleanConnect.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<string>("IdDocumentUrl")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset?>("IdVerifiedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ProfilePictureUrl")
-                        .HasColumnType("text");
-
                     b.Property<Guid?>("ProviderId")
                         .HasColumnType("uuid");
 
@@ -1693,12 +1678,6 @@ namespace CleanConnect.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<bool>("LivenessRequired")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTimeOffset?>("LivenessVerifiedAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("MustChangePassword")
                         .ValueGeneratedOnAdd()
