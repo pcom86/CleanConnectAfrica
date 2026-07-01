@@ -131,6 +131,7 @@ export interface Service {
   basePrice: number;
   estimatedDurationMinutes: number;
   requiredCleaners: number;
+  isActive?: boolean;
 }
 
 export interface Payment {

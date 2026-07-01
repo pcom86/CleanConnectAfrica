@@ -11,6 +11,7 @@ import Logo from "../components/Logo";
 const NAV_ITEMS = [
   { href: "/admin/dashboard", label: "Dashboard", icon: "📊" },
   { href: "/admin/business-profiles", label: "Business Profiles", icon: "🏢" },
+  { href: "/admin/services", label: "Services", icon: "🛠️" },
   { href: "/admin/membership-plans", label: "Membership Plans", icon: "💳" },
   { href: "/admin/users", label: "Users", icon: "👥" },
 ];

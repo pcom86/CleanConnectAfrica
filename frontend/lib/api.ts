@@ -264,6 +264,31 @@ export async function listServices(): Promise<ApiResult<Service[]>> {
   return { succeeded: true, data, error: null };
 }
 
+export async function listAllServices(): Promise<ApiResult<Service[]>> {
+  const res = await fetch(`${BASE_URL}/api/v1/services?activeOnly=false`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    return { succeeded: false, data: null, error: body.error ?? `HTTP ${res.status}` };
+  }
+  const data = (await res.json()) as Service[];
+  return { succeeded: true, data, error: null };
+}
+
+export async function updateService(serviceId: string, data: {
+  name?: string;
+  description?: string;
+  category?: string;
+  basePrice?: number;
+  estimatedDurationMinutes?: number;
+  requiredCleaners?: number;
+  isActive?: boolean;
+}): Promise<ApiResult<Service>> {
+  return put<Service>(`/api/v1/services/${serviceId}`, data);
+}
+
 export async function createCleaningBooking(data: {
   customerProfileId: string;
   serviceId?: string | null;
