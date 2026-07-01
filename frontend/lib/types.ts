@@ -182,6 +182,8 @@ export interface Booking {
   recurrenceGroupId?: string | null;
   recurrenceIndex?: number | null;
   services?: BookingServiceItem[];
+  assignments?: Assignment[];
+  jobDetail?: CleaningJobDetail | null;
 }
 
 export interface ProviderBooking {

@@ -14,7 +14,7 @@ public sealed record ReviewDto(Guid Id, int Rating, string? Comment, DateTimeOff
 
 public sealed record BookingServiceDto(Guid ServiceId, string ServiceName, string ServiceCategory, decimal UnitPrice);
 
-public sealed record CustomerBookingDto(Guid Id, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt, ReviewDto? Review, List<BookingServiceDto>? Services = null);
+public sealed record CustomerBookingDto(Guid Id, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt, ReviewDto? Review, List<BookingServiceDto>? Services = null, List<AssignmentDto>? Assignments = null, CleaningJobDetailDto? JobDetail = null);
 
 public sealed record ProviderBookingDto(Guid Id, Guid ServiceId, string ServiceName, string ServiceCategory, Guid AddressId, string AddressLabel, string AddressSummary, decimal? AddressLatitude, decimal? AddressLongitude, DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, BookingStatus Status, PaymentStatus PaymentStatus, decimal Price, string Currency, bool PayOnsite, DateTimeOffset CreatedAt, List<BookingServiceDto>? Services = null);
 
