@@ -569,7 +569,7 @@ Write-Host "`n============================================================" -For
 Write-Host "                      SEED SUMMARY                         " -ForegroundColor Yellow
 Write-Host "============================================================" -ForegroundColor Yellow
 
-Write-Host "`n👤 CUSTOMER" -ForegroundColor Cyan
+Write-Host "`nCUSTOMER" -ForegroundColor Cyan
 Write-Host "   Name     : Alice Customer" -ForegroundColor White
 Write-Host "   Email    : alice@example.com" -ForegroundColor White
 Write-Host "   Password : Password123" -ForegroundColor White
@@ -577,7 +577,7 @@ Write-Host "   Role     : Customer" -ForegroundColor White
 Write-Host "   Profile  : $customerProfileId" -ForegroundColor White
 
 if ($adminUser) {
-    Write-Host "`n🔐 ADMIN USER" -ForegroundColor Cyan
+    Write-Host "`nADMIN USER" -ForegroundColor Cyan
     Write-Host "   Name     : $($adminUser.firstName) $($adminUser.lastName)" -ForegroundColor White
     Write-Host "   Email    : $($adminUser.email)" -ForegroundColor White
     Write-Host "   Password : Password123" -ForegroundColor White
@@ -585,7 +585,7 @@ if ($adminUser) {
     Write-Host "   ID       : $($adminUser.id)" -ForegroundColor White
 }
 
-Write-Host "`n🏢 PROVIDER OWNER" -ForegroundColor Cyan
+Write-Host "`nPROVIDER OWNER" -ForegroundColor Cyan
 Write-Host "   Name     : Bob Provider" -ForegroundColor White
 Write-Host "   Email    : bob@example.com" -ForegroundColor White
 Write-Host "   Password : Password123" -ForegroundColor White
@@ -596,15 +596,15 @@ Write-Host "   Tax No   : 9123456789" -ForegroundColor White
 Write-Host "   Services : Cleaning, CarWash" -ForegroundColor White
 Write-Host "   Areas    : Claremont, Rondebosch, Newlands, Observatory, Woodstock" -ForegroundColor White
 
-Write-Host "`n🧹 CLEANERS (registered under Spotless Solutions)" -ForegroundColor Cyan
+Write-Host "`nCLEANERS (registered under Spotless Solutions)" -ForegroundColor Cyan
 Write-Host "   Cleaner 1: Thabo Mokoena  |  cleaner1@spotless.co.za  |  Password123" -ForegroundColor White
 Write-Host "   Cleaner 2: Lerato Dlamini  |  cleaner2@spotless.co.za  |  Password123" -ForegroundColor White
 
-Write-Host "`n👷 SUPERVISOR (registered under Spotless Solutions)" -ForegroundColor Cyan
+Write-Host "`nSUPERVISOR (registered under Spotless Solutions)" -ForegroundColor Cyan
 Write-Host "   Supervisor: Sipho Ndlovu  |  supervisor1@spotless.co.za  |  Password123" -ForegroundColor White
 
 if ($eftRes.succeeded) {
-    Write-Host "`n💳 EFT PAYMENT BOOKING" -ForegroundColor Cyan
+    Write-Host "`nEFT PAYMENT BOOKING" -ForegroundColor Cyan
     Write-Host "   Booking ID : $($eftRes.data[0].id)" -ForegroundColor White
     Write-Host "   Service    : $($eftRes.data[0].serviceName)" -ForegroundColor White
     Write-Host "   Status     : $($eftRes.data[0].status)" -ForegroundColor White
@@ -613,7 +613,7 @@ if ($eftRes.succeeded) {
 }
 
 if ($onsiteRes.succeeded) {
-    Write-Host "`n💰 PAY ONSITE BOOKING" -ForegroundColor Cyan
+    Write-Host "`nPAY ONSITE BOOKING" -ForegroundColor Cyan
     Write-Host "   Booking ID : $($onsiteRes.data[0].id)" -ForegroundColor White
     Write-Host "   Service    : $($onsiteRes.data[0].serviceName)" -ForegroundColor White
     Write-Host "   Status     : $($onsiteRes.data[0].status)" -ForegroundColor White
@@ -622,15 +622,15 @@ if ($onsiteRes.succeeded) {
 }
 
 if ($assignedRes.succeeded) {
-    Write-Host "`n👷 ASSIGNED TEAM BOOKING (for supervisor testing)" -ForegroundColor Cyan
+    Write-Host "`nASSIGNED TEAM BOOKING (for supervisor testing)" -ForegroundColor Cyan
     Write-Host "   Booking ID : $assignedBookingId" -ForegroundColor White
     Write-Host "   Service    : $serviceName" -ForegroundColor White
-    Write-Host "   Status     : Accepted & Assigned" -ForegroundColor White
+    Write-Host "   Status     : Accepted and Assigned" -ForegroundColor White
     Write-Host "   Team       : 2 Cleaners + 1 Supervisor" -ForegroundColor White
 }
 
 if ($outside1Res.succeeded) {
-    Write-Host "`n🌍 OUTSIDE-RANGE BOOKING 1" -ForegroundColor Cyan
+    Write-Host "`nOUTSIDE-RANGE BOOKING 1" -ForegroundColor Cyan
     Write-Host "   Booking ID : $($outside1Res.data[0].id)" -ForegroundColor White
     Write-Host "   Service    : $($outside1Res.data[0].serviceName)" -ForegroundColor White
     Write-Host "   Status     : $($outside1Res.data[0].status)" -ForegroundColor White
@@ -638,7 +638,7 @@ if ($outside1Res.succeeded) {
 }
 
 if ($outside2Res.succeeded) {
-    Write-Host "`n🌍 OUTSIDE-RANGE BOOKING 2" -ForegroundColor Cyan
+    Write-Host "`nOUTSIDE-RANGE BOOKING 2" -ForegroundColor Cyan
     Write-Host "   Booking ID : $($outside2Res.data[0].id)" -ForegroundColor White
     Write-Host "   Service    : $($outside2Res.data[0].serviceName)" -ForegroundColor White
     Write-Host "   Status     : $($outside2Res.data[0].status)" -ForegroundColor White
@@ -646,7 +646,7 @@ if ($outside2Res.succeeded) {
 }
 
 if ($recurringRes.succeeded) {
-    Write-Host "`n🔄 RECURRING BOOKING (Weekly, 4 occurrences)" -ForegroundColor Cyan
+    Write-Host "`nRECURRING BOOKING (Weekly, 4 occurrences)" -ForegroundColor Cyan
     foreach ($b in $recurringRes.data) {
         Write-Host "   Booking ID : $($b.id) | $($b.scheduledStart) | Status=$($b.status)" -ForegroundColor White
     }
