@@ -138,6 +138,38 @@ if (-not $addressId) {
 }
 
 # ------------------------------------------------------------------
+# 1b. Create / verify Admin User
+# ------------------------------------------------------------------
+$adminUser = Get-UserByEmail "admin@example.com"
+if ($adminUser) {
+    Write-Host "Admin user already exists: $($adminUser.firstName) $($adminUser.lastName) | ID: $($adminUser.id)" -ForegroundColor Yellow
+} else {
+    $adminPayload = @{
+        firstName    = "System"
+        lastName     = "Admin"
+        email        = "admin@example.com"
+        phoneNumber  = "0790000000"
+        passwordHash = "Password123"
+        role         = 5   # Admin
+        status       = 1   # Active
+    }
+    $adminRes = Invoke-ApiPost "/api/v1/users" $adminPayload
+    if ($adminRes.succeeded) {
+        $adminUser = $adminRes.data
+        Write-Host "Created Admin User  : $($adminUser.firstName) $($adminUser.lastName) | ID: $($adminUser.id)" -ForegroundColor Green
+    } elseif ($adminRes.error -like "*already exists*") {
+        $adminUser = Get-UserByEmail "admin@example.com"
+        if ($adminUser) {
+            Write-Host "Admin user already exists (re-found): $($adminUser.firstName) $($adminUser.lastName)" -ForegroundColor Yellow
+        } else {
+            Write-Host "Failed to create or locate admin user." -ForegroundColor Red
+        }
+    } else {
+        Write-Host "Failed to create admin user: $($adminRes.error)" -ForegroundColor Red
+    }
+}
+
+# ------------------------------------------------------------------
 # 2. Create / verify Business Owner (Bob)
 # ------------------------------------------------------------------
 $owner = Get-UserByEmail "bob@example.com"
@@ -543,6 +575,15 @@ Write-Host "   Email    : alice@example.com" -ForegroundColor White
 Write-Host "   Password : Password123" -ForegroundColor White
 Write-Host "   Role     : Customer" -ForegroundColor White
 Write-Host "   Profile  : $customerProfileId" -ForegroundColor White
+
+if ($adminUser) {
+    Write-Host "`n🔐 ADMIN USER" -ForegroundColor Cyan
+    Write-Host "   Name     : $($adminUser.firstName) $($adminUser.lastName)" -ForegroundColor White
+    Write-Host "   Email    : $($adminUser.email)" -ForegroundColor White
+    Write-Host "   Password : Password123" -ForegroundColor White
+    Write-Host "   Role     : Admin" -ForegroundColor White
+    Write-Host "   ID       : $($adminUser.id)" -ForegroundColor White
+}
 
 Write-Host "`n🏢 PROVIDER OWNER" -ForegroundColor Cyan
 Write-Host "   Name     : Bob Provider" -ForegroundColor White
