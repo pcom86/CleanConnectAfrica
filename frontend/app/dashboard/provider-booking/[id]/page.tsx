@@ -44,6 +44,8 @@ export default function ProviderBookingDetailPage() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [selectedCleaners, setSelectedCleaners] = useState<Set<string>>(new Set());
   const [selectedSupervisor, setSelectedSupervisor] = useState<string>("");
+  const [vehicleRegistration, setVehicleRegistration] = useState("");
+  const [vehicleType, setVehicleType] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,6 +122,15 @@ export default function ProviderBookingDetailPage() {
 
   const EMPLOYMENT_TYPES = ["InternalStaff", "Contractor", "ProviderStaff"];
   const STAFF_ROLES = ["Cleaner", "Washer", "Driver", "Supervisor"] as const;
+  const VEHICLE_TYPES = [
+    { value: "", label: "Select vehicle type..." },
+    { value: "Hatchback", label: "Hatchback" },
+    { value: "Sedan", label: "Sedan" },
+    { value: "Suv", label: "SUV" },
+    { value: "Bakkie", label: "Bakkie" },
+    { value: "Van", label: "Van" },
+    { value: "Truck", label: "Truck" }
+  ];
   const ROLE_EMOJI: Record<string, string> = { Cleaner: "🧹", Washer: "🫧", Driver: "🚗", Supervisor: "👷" };
 
   async function handleAddMember(e: React.FormEvent) {
@@ -145,10 +156,12 @@ export default function ProviderBookingDetailPage() {
     try {
       const cleanerIds = Array.from(selectedCleaners);
       if (cleanerIds.length === 0) { setError("Select at least one cleaner."); setActionLoading(false); return; }
-      const res = await assignTeam(bookingId, cleanerIds, selectedSupervisor || null);
+      const res = await assignTeam(bookingId, cleanerIds, selectedSupervisor || null, vehicleRegistration.trim() || null, vehicleType.trim() || null);
       if (res.succeeded) {
         setSelectedCleaners(new Set());
         setSelectedSupervisor("");
+        setVehicleRegistration("");
+        setVehicleType("");
         await loadData();
       } else {
         setError(res.error ?? "Failed to assign team.");
@@ -454,6 +467,13 @@ export default function ProviderBookingDetailPage() {
                                       e.target.checked ? next.add(m.profileId) : next.delete(m.profileId);
                                       setSelectedCleaners(next);
                                     }} />
+                                  {m.profilePictureUrl ? (
+                                    <img src={m.profilePictureUrl} alt={m.name} className="h-8 w-8 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0" />
+                                  ) : (
+                                    <div className="h-8 w-8 rounded-full bg-brand-green flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                      {m.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                                    </div>
+                                  )}
                                   <div className="min-w-0">
                                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{m.name}</p>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">{m.employmentType} · {m.serviceZones}</p>
@@ -484,6 +504,13 @@ export default function ProviderBookingDetailPage() {
                                   <input type="radio" name="supervisor" value={m.profileId}
                                     checked={selectedSupervisor === m.profileId}
                                     onChange={() => setSelectedSupervisor(m.profileId)} className="mt-0.5" />
+                                  {m.profilePictureUrl ? (
+                                    <img src={m.profilePictureUrl} alt={m.name} className="h-8 w-8 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0" />
+                                  ) : (
+                                    <div className="h-8 w-8 rounded-full bg-brand-green flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                      {m.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                                    </div>
+                                  )}
                                   <div className="min-w-0">
                                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{m.name}</p>
                                     <p className="text-xs text-gray-500 dark:text-gray-400">{m.employmentType} · {m.serviceZones}</p>
@@ -494,12 +521,33 @@ export default function ProviderBookingDetailPage() {
                           </div>
                         )}
 
+                        {/* Vehicle */}
+                        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
+                          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Vehicle <span className="text-gray-400">(optional)</span></p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Registration Number</label>
+                              <input type="text" placeholder="e.g. CA 123-456"
+                                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-green"
+                                value={vehicleRegistration} onChange={e => setVehicleRegistration(e.target.value)} />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Vehicle Type</label>
+                              <select
+                                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-green"
+                                value={vehicleType} onChange={e => setVehicleType(e.target.value)}>
+                                {VEHICLE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+
                         <button
                           onClick={handleAssignTeam}
                           disabled={actionLoading || selectedCleaners.size === 0}
                           className="w-full py-3 bg-amber-600 text-white font-semibold rounded-xl hover:bg-amber-700 disabled:opacity-50 transition-colors"
                         >
-                          {actionLoading ? "Assigning…" : `Dispatch Team (${selectedCleaners.size} cleaner${selectedCleaners.size !== 1 ? "s" : ""}${selectedSupervisor ? " + supervisor" : ""})`}
+                          {actionLoading ? "Assigning…" : `Dispatch Team (${selectedCleaners.size} cleaner${selectedCleaners.size !== 1 ? "s" : ""}${selectedSupervisor ? " + supervisor" : ""}${vehicleRegistration ? ` · ${vehicleRegistration}` : ""}${!vehicleRegistration && vehicleType ? ` · ${vehicleType}` : ""})`}
                         </button>
                       </div>
                     </div>
@@ -636,15 +684,37 @@ export default function ProviderBookingDetailPage() {
             <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4 uppercase tracking-wide">Assigned Team</h2>
             {booking.assignments.map((a) => (
               <div key={a.id} className="space-y-3">
+                {/* Vehicle */}
+                {booking.jobDetail?.vehicleRegistration && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg border border-amber-100 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/10 text-sm">
+                    <span className="text-lg">🚗</span>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{booking.jobDetail.vehicleRegistration}</p>
+                      {booking.jobDetail.vehicleType && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{booking.jobDetail.vehicleType}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {/* Team cleaners */}
                 {(a.teamMembers && a.teamMembers.length > 0) ? (
                   <div>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Cleaners</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {a.teamMembers.map((m) => (
-                        <div key={m.profileId} className="p-3 rounded-xl border border-green-100 dark:border-green-900/40 bg-green-50 dark:bg-green-900/10 text-sm">
-                          <p className="font-medium text-gray-900 dark:text-gray-100">{m.name}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{m.employmentType} · {m.serviceZones}</p>
+                        <div key={m.profileId} className="flex items-center gap-3 p-3 rounded-xl border border-green-100 dark:border-green-900/40 bg-green-50 dark:bg-green-900/10 text-sm">
+                          {m.profilePictureUrl ? (
+                            <img src={m.profilePictureUrl} alt={m.name} className="h-8 w-8 rounded-full object-cover border border-gray-200 dark:border-gray-600 flex-shrink-0" />
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-brand-green flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                              {m.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 dark:text-gray-100">{m.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{m.employmentType} · {m.serviceZones}</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{m.skills}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -658,7 +728,10 @@ export default function ProviderBookingDetailPage() {
                 {a.supervisorName && (
                   <div>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Supervisor</p>
-                    <div className="p-3 rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/10 text-sm">
+                    <div className="flex items-center gap-3 p-3 rounded-xl border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/10 text-sm">
+                      <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        {a.supervisorName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                      </div>
                       <p className="font-medium text-gray-900 dark:text-gray-100">{a.supervisorName}</p>
                     </div>
                   </div>

@@ -106,6 +106,8 @@ public sealed class CleaningJobDetail
     public DateTimeOffset? TeamDispatchedAt { get; set; }
     public DateTimeOffset? TeamArrivedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
+    public string? VehicleRegistration { get; set; }
+    public VehicleType? VehicleType { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 

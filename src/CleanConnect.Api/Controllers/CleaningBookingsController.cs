@@ -52,7 +52,7 @@ public sealed class CleaningBookingsController(ISender sender) : ControllerBase
     [HttpPost("{bookingId:guid}/assign-team")]
     public async Task<IActionResult> AssignTeam(Guid bookingId, [FromBody] AssignTeamRequest request, CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new AssignTeamCommand(bookingId, request.CleanerProfileIds, request.SupervisorProfileId), cancellationToken);
+        var result = await sender.Send(new AssignTeamCommand(bookingId, request.CleanerProfileIds, request.SupervisorProfileId, request.VehicleRegistration, request.VehicleType), cancellationToken);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 
@@ -82,5 +82,5 @@ public sealed record UpdateCleaningBookingStatusRequest(BookingStatus NewStatus,
 public sealed record AcceptBookingRequest(Guid ProviderId, string? Scope = null, List<string>? SelectedBookingIds = null);
 public sealed record AssignCleanerRequest(Guid CleanerProfileId);
 public sealed record CompleteCleaningRequest(List<string> AfterPhotos, string? CleanerNotes, List<string>? CompletedChecklistItems);
-public sealed record AssignTeamRequest(List<Guid> CleanerProfileIds, Guid? SupervisorProfileId);
+public sealed record AssignTeamRequest(List<Guid> CleanerProfileIds, Guid? SupervisorProfileId, string? VehicleRegistration = null, VehicleType? VehicleType = null);
 public sealed record UpdateBookingRequest(DateTimeOffset ScheduledStart, DateTimeOffset ScheduledEnd, string? SpecialInstructions, string? AccessNotes, bool HasPets, string? ParkingInformation);

@@ -218,6 +218,8 @@ export interface CleaningJobDetail {
   teamDispatchedAt: string | null;
   teamArrivedAt: string | null;
   completedAt: string | null;
+  vehicleRegistration: string | null;
+  vehicleType: string | null;
 }
 
 export interface TeamMember {

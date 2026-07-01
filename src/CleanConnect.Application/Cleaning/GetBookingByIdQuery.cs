@@ -74,7 +74,9 @@ public sealed class GetBookingByIdQueryHandler(CleanConnectDbContext dbContext) 
             booking.CleaningJobDetail.CleanerNotes,
             booking.CleaningJobDetail.TeamDispatchedAt,
             booking.CleaningJobDetail.TeamArrivedAt,
-            booking.CleaningJobDetail.CompletedAt
+            booking.CleaningJobDetail.CompletedAt,
+            booking.CleaningJobDetail.VehicleRegistration,
+            booking.CleaningJobDetail.VehicleType
         );
 
         var teamMembers = teamCleanerIds

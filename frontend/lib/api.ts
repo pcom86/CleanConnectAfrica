@@ -445,8 +445,19 @@ export async function getProviderTeam(providerId: string): Promise<ApiResult<Tea
   return get<TeamMember[]>(`/api/v1/cleaning-bookings/team/${providerId}`);
 }
 
-export async function assignTeam(bookingId: string, cleanerProfileIds: string[], supervisorProfileId: string | null): Promise<ApiResult<Booking>> {
-  return post<Booking>(`/api/v1/cleaning-bookings/${bookingId}/assign-team`, { cleanerProfileIds, supervisorProfileId });
+export async function assignTeam(
+  bookingId: string,
+  cleanerProfileIds: string[],
+  supervisorProfileId: string | null,
+  vehicleRegistration?: string | null,
+  vehicleType?: string | null
+): Promise<ApiResult<Booking>> {
+  return post<Booking>(`/api/v1/cleaning-bookings/${bookingId}/assign-team`, {
+    cleanerProfileIds,
+    supervisorProfileId,
+    vehicleRegistration,
+    vehicleType
+  });
 }
 
 export async function registerSupervisor(data: {

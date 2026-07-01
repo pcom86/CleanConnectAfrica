@@ -798,7 +798,9 @@ public sealed class AssignCleanerToBookingCommandHandler(CleanConnectDbContext d
 public sealed record AssignTeamCommand(
     Guid BookingId,
     List<Guid> CleanerProfileIds,
-    Guid? SupervisorProfileId
+    Guid? SupervisorProfileId,
+    string? VehicleRegistration = null,
+    VehicleType? VehicleType = null
 ) : IRequest<ApiResult<BookingDto>>;
 
 public sealed class AssignTeamCommandValidator : AbstractValidator<AssignTeamCommand>
@@ -873,11 +875,23 @@ public sealed class AssignTeamCommandHandler(CleanConnectDbContext dbContext)
         booking.Status = BookingStatus.CleanerEnRoute;
         booking.UpdatedAt = now;
 
-        if (booking.CleaningJobDetail is not null)
+        if (booking.CleaningJobDetail is null)
         {
-            booking.CleaningJobDetail.TeamDispatchedAt = now;
-            booking.CleaningJobDetail.UpdatedAt = now;
+            booking.CleaningJobDetail = new CleaningJobDetail
+            {
+                Id = Guid.NewGuid(),
+                BookingId = booking.Id,
+                CleaningType = "Standard",
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            dbContext.CleaningJobDetails.Add(booking.CleaningJobDetail);
         }
+
+        booking.CleaningJobDetail.TeamDispatchedAt = now;
+        booking.CleaningJobDetail.VehicleRegistration = request.VehicleRegistration;
+        booking.CleaningJobDetail.VehicleType = request.VehicleType;
+        booking.CleaningJobDetail.UpdatedAt = now;
 
         var cleanerNames = string.Join(", ", cleaners.Select(c => $"{c.User.FirstName} {c.User.LastName}"));
         var milestoneNote = supervisor is not null

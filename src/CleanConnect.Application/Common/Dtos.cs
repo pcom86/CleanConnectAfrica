@@ -66,7 +66,9 @@ public sealed record CleaningJobDetailDto(
     string? CleanerNotes,
     DateTimeOffset? TeamDispatchedAt,
     DateTimeOffset? TeamArrivedAt,
-    DateTimeOffset? CompletedAt
+    DateTimeOffset? CompletedAt,
+    string? VehicleRegistration = null,
+    VehicleType? VehicleType = null
 );
 
 public sealed record TeamMemberDto(Guid ProfileId, Guid UserId, string Name, string MemberRole, string EmploymentType, string Skills, string ServiceZones, decimal Rating, string Email, string PhoneNumber, string Status, string VettingStatus, string? IdDocumentUrl, DateTimeOffset? IdVerifiedAt, string? ProfilePictureUrl);
