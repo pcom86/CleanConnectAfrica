@@ -187,6 +187,40 @@ using (var scope = app.Services.CreateScope())
         });
     }
 
+    if (!existingServices.Contains("Garden Service"))
+    {
+        servicesToAdd.Add(new Service
+        {
+            Id = Guid.NewGuid(),
+            Name = "Garden Service",
+            Description = "Lawn mowing, hedge trimming, weeding, leaf blowing and general garden maintenance.",
+            Category = ServiceCategory.Garden.ToString(),
+            BasePrice = 350m,
+            EstimatedDurationMinutes = 120,
+            RequiredCleaners = 1,
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+    }
+
+    if (!existingServices.Contains("Landscaping"))
+    {
+        servicesToAdd.Add(new Service
+        {
+            Id = Guid.NewGuid(),
+            Name = "Landscaping",
+            Description = "Professional landscape design, planting, paving, irrigation setup and outdoor transformation.",
+            Category = ServiceCategory.Landscaping.ToString(),
+            BasePrice = 1200m,
+            EstimatedDurationMinutes = 360,
+            RequiredCleaners = 2,
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+    }
+
     if (servicesToAdd.Count > 0)
     {
         db.Services.AddRange(servicesToAdd);

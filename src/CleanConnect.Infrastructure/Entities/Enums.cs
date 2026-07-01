@@ -139,7 +139,9 @@ public enum ServiceCategory
     Cleaning = 1,
     Laundry = 2,
     CarWash = 3,
-    PestControl = 4
+    PestControl = 4,
+    Garden = 5,
+    Landscaping = 6
 }
 
 public enum LaundryStatus
