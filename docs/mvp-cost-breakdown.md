@@ -45,6 +45,23 @@ The backend uses **.NET 10 + ASP.NET Core** with **Aspire 13** for orchestration
 |---------|---------|-------------------|
 | Azure Container Registry / AWS ECR / Docker Hub | Store Docker images | R 200 – 400 |
 
+### 1.3 Azure Reference Architecture (Recommended)
+
+The codebase now includes Bicep infrastructure-as-code targeting **Azure Container Apps**, **Azure Database for PostgreSQL Flexible Server**, and **Azure Cache for Redis**. This is the architecture to deploy for Microsoft Marketplace listing.
+
+| Component | Azure Service | SKU / Config | Est. Monthly Cost |
+|-----------|-------------|--------------|-------------------|
+| API | Azure Container Apps | 1–3 replicas, 1 vCPU, 2 GB | R 800 – 2,400 |
+| Worker | Azure Container Apps | 1 replica, 0.5 vCPU, 1 GB | R 400 |
+| Frontend | Azure Static Web Apps | Free tier (custom domain) | R 0 |
+| Database | Azure DB for PostgreSQL — Flexible Server | Burstable B1ms, 32 GB | R 1,200 |
+| Cache | Azure Cache for Redis | Basic C0 (250 MB) | R 300 |
+| Registry | Azure Container Registry | Basic | R 200 |
+| Telemetry | Application Insights + Log Analytics | 5 GB ingestion, 30-day retention | R 700 |
+| **Azure Total** | | | **R 3,600 – 5,200** |
+
+> **Region:** `southafricanorth` (Johannesburg) for SA users. `westeurope` as a fallback for broader SKU availability.
+
 ---
 
 ## 2. Database & Storage
@@ -313,6 +330,8 @@ If capital is constrained, this is the **absolute minimum** production setup:
 | **ULTRA-LEAN TOTAL** | | **R 920 – 1,420** |
 
 > **Trade-off:** You take on operational responsibility for database backups, updates, and scaling. This is acceptable for an MVP but should be migrated to managed services before scaling.
+>
+> **Microsoft Marketplace:** If your goal is listing on the Microsoft Marketplace, you **must** use Azure (see §1.3). The ultra-lean path above will not qualify for co-sell or Azure Marketplace SaaS listings.
 
 ---
 
