@@ -4,16 +4,28 @@ interface LogoProps {
   size?: "sm" | "md" | "lg" | "xl";
   showText?: boolean;
   dark?: boolean;
+  variant?: "icon" | "full";
 }
 
-export default function Logo({ size = "md", showText = true, dark = false }: LogoProps) {
+export default function Logo({ size = "md", showText = true, dark = false, variant = "icon" }: LogoProps) {
   const sizes = {
-    sm: { icon: 28, text: "text-base" },
-    md: { icon: 36, text: "text-xl" },
-    lg: { icon: 48, text: "text-2xl" },
-    xl: { icon: 64, text: "text-3xl" },
+    sm: { icon: 28, text: "text-base", full: 100 },
+    md: { icon: 36, text: "text-xl", full: 140 },
+    lg: { icon: 48, text: "text-2xl", full: 180 },
+    xl: { icon: 64, text: "text-3xl", full: 240 },
   };
   const s = sizes[size];
+
+  if (variant === "full") {
+    return (
+      <img
+        src="/logo-full.png"
+        alt="CleanConnect Africa"
+        width={s.full}
+        className="select-none"
+      />
+    );
+  }
 
   return (
     <div className="flex items-center gap-2 select-none">
