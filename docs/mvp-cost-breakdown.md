@@ -12,7 +12,7 @@ Three recommended scenarios based on budget and go-to-market strategy:
 |----------|---------------|----------------------|--------------------|----------|
 | **Ultra-Lean** | Single VM (self-managed) | **R 920 – 1,420** | **$ 50 – 78** | Pre-revenue, testing product-market fit |
 | **Azure MVP** | Azure Container Apps + managed services | **R 3,600 – 5,200** | **$ 197 – 284** | Microsoft Marketplace listing, production-ready |
-| **Full MVP** | Azure MVP + Email + SMS + Domain | **R 3,720 – 5,570** | **$ 203 – 304** | Live customers, full notification stack |
+| **Full MVP** | Azure MVP + ID Verification + Email + SMS + Domain | **R 4,620 – 9,270** | **$ 252 – 507** | Live marketplace with provider KYC |
 
 > Costs are **MVP-tier estimates** for a South African market launch and scale with user volume. All figures in ZAR with USD equivalents at ~R 18.30/USD.
 
@@ -21,13 +21,14 @@ Three recommended scenarios based on budget and go-to-market strategy:
 | Category | Azure MVP Range | Full MVP Range |
 |----------|-----------------|----------------|
 | Azure Infrastructure (compute, DB, Redis, registry, telemetry) | R 3,600 – 5,200 | R 3,600 – 5,200 |
+| ID Verification & Liveness (Smile Identity) | — | R 900 – 3,700 |
 | Email delivery (AWS SES / SendGrid) | — | R 0 – 150 |
 | SMS notifications (Africa's Talking) | — | R 100 – 200 |
 | Domain & SSL (.co.za + Let's Encrypt) | — | R 20 |
 | Cloudflare (Free plan) | — | R 0 |
 | Payment gateway (Ozow — revenue-deducted) | — | R 0* |
 | DevOps / CI-CD (GitHub Actions free tier) | — | R 0 |
-| **TOTAL** | **R 3,600 – 5,200** | **R 3,720 – 5,570** |
+| **TOTAL** | **R 3,600 – 5,200** | **R 4,620 – 9,270** |
 
 > *Ozow transaction fees (1.5% – 2.5%) are deducted from revenue, not a fixed monthly cost. Fixed platform fees may apply after negotiations.
 >
@@ -157,7 +158,42 @@ The application integrates **Ozow** for Instant EFT payments.
 
 **MVP Recommendation:** AWS SES (cheapest at scale) or SendGrid (best developer experience).
 
-### 4.2 SMS Notifications
+### 4.2 ID Verification & Liveness Detection
+
+> **Not currently integrated. Critical for marketplace trust and safety.** Required for:
+> - Provider onboarding KYC (Know Your Customer)
+> - Identity fraud prevention
+> - Regulatory compliance (FICA in South Africa)
+
+#### Identity Verification Providers
+
+| Provider | SA Coverage | Cost per Check | MVP Recommendation |
+|----------|-------------|----------------|--------------------|
+| **Smile Identity** | SA Smart ID, Passport, Driver's License + 15+ African countries | R 18 – 37 ($1 – $2) | Best for African markets, startup-friendly |
+| **Onfido** | SA Smart ID, Passport, 2,500+ global documents | R 37 – 55 ($2 – $3) | Best accuracy, strong SA presence |
+| **Jumio** | SA documents, global coverage | R 37 – 73 ($2 – $4) | Enterprise-grade compliance |
+| **Veriff** | SA Smart ID, Passport, 11,000+ documents | R 37 – 55 ($2 – $3) | Fast verification, good UX |
+
+#### Liveness Detection (Anti-Spoofing)
+
+| Provider | Method | Cost per Check |
+|----------|--------|----------------|
+| Smile Identity (included) | Passive + active liveness | Included in ID check |
+| Onfido (included) | Video selfie + photo-based | Included in ID check |
+| iProov (standalone) | Genuine Presence Assurance | R 9 – 18 ($0.50 – $1) |
+| Amazon Rekognition | Face liveness detection | R 0.55 – 1.10 ($0.03 – $0.06) |
+
+#### Estimated Monthly Cost
+
+| Scenario | Verifications / Month | Provider | Monthly Cost |
+|----------|----------------------|----------|--------------|
+| MVP (provider onboarding only) | 50 – 100 | Smile Identity | R 900 – 3,700 |
+| Growth (providers + high-value customers) | 200 – 500 | Smile Identity | R 3,600 – 18,500 |
+| Scale (all users + recurring checks) | 1,000+ | Onfido / Smile Identity | R 18,000+ (volume discounts) |
+
+**MVP Recommendation:** Start with **Smile Identity** for best SA/African pricing. Most providers offer startup credits or first 100 checks free.
+
+### 4.3 SMS Notifications
 
 > **Not currently integrated.** Recommended for:
 > - OTP / Two-factor authentication
@@ -173,7 +209,7 @@ The application integrates **Ozow** for Instant EFT payments.
 
 **MVP Recommendation:** Africa's Talking (best SA coverage and pricing).
 
-### 4.3 Maps / Geolocation
+### 4.4 Maps / Geolocation
 
 > **The codebase includes address and location fields but no active map integration.** For MVP, basic geocoding may be needed for:
 > - Provider service radius calculations

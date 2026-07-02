@@ -41,12 +41,13 @@
   <tr><td>Azure Infrastructure (compute, DB, cache, registry, telemetry, frontend)</td><td>R 3,600 &ndash; 5,200</td><td>$ 197 &ndash; 284</td></tr>
   <tr><td>Domain, CDN &amp; Security</td><td>R 20 &ndash; 320</td><td>$ 1 &ndash; 17</td></tr>
   <tr><td>Payment Gateway (Ozow)</td><td>R 0 &ndash; 500</td><td>$ 0 &ndash; 27</td></tr>
+  <tr><td>ID Verification &amp; Liveness (provider KYC)</td><td>R 900 &ndash; 3,700</td><td>$ 49 &ndash; 202</td></tr>
   <tr><td>Email Delivery</td><td>R 0 &ndash; 300</td><td>$ 0 &ndash; 16</td></tr>
   <tr><td>SMS Notifications</td><td>R 100 &ndash; 250</td><td>$ 5 &ndash; 14</td></tr>
   <tr><td>Maps / Geolocation</td><td>R 0 &ndash; 500</td><td>$ 0 &ndash; 27</td></tr>
   <tr><td>Monitoring &amp; Error Tracking (optional)</td><td>R 0 &ndash; 500</td><td>$ 0 &ndash; 27</td></tr>
   <tr><td>CI/CD &amp; DevOps</td><td>R 0</td><td>$ 0</td></tr>
-  <tr class="total-row highlight"><td><strong>TOTAL MONTHLY MVP</strong></td><td><strong>R 3,720 &ndash; 7,570</strong></td><td><strong>$ 203 &ndash; 414</strong></td></tr>
+  <tr class="total-row highlight"><td><strong>TOTAL MONTHLY MVP</strong></td><td><strong>R 4,620 &ndash; 11,270</strong></td><td><strong>$ 252 &ndash; 616</strong></td></tr>
 </table>
 
 <table>
@@ -116,9 +117,45 @@
 </table>
 </div>
 
+<!-- ID VERIFICATION -->
+<div class="section">
+<h2>5. ID Verification &amp; Liveness Detection</h2>
+<p>Critical for a marketplace: provider onboarding KYC, customer identity verification, and fraud prevention. Costs are <strong>per-verification</strong>, not fixed monthly.</p>
+
+<h3>5.1 Identity Verification (Document + Biometric)</h3>
+<table>
+  <tr><th>Provider</th><th>Coverage</th><th>Cost per Check</th><th>MVP Recommendation</th></tr>
+  <tr><td><strong>Smile Identity</strong></td><td>SA Smart ID, Passport, Driver's License + 15+ African countries</td><td>R 18 &ndash; 37 ($1 &ndash; $2)</td><td>Best for African markets, SA coverage</td></tr>
+  <tr><td><strong>Onfido</strong></td><td>SA Smart ID, Passport, global 2,500+ document types</td><td>R 37 &ndash; 55 ($2 &ndash; $3)</td><td>Best accuracy, strong SA presence</td></tr>
+  <tr><td><strong>Jumio</strong></td><td>SA documents, global coverage</td><td>R 37 &ndash; 73 ($2 &ndash; $4)</td><td>Enterprise-grade compliance</td></tr>
+  <tr><td><strong>Veriff</strong></td><td>SA Smart ID, Passport, 11,000+ document types</td><td>R 37 &ndash; 55 ($2 &ndash; $3)</td><td>Fast verification, good UX</td></tr>
+  <tr><td><strong>iProov</strong> (liveness only)</td><td>Presentation attack detection, face matching</td><td>R 9 &ndash; 18 ($0.50 &ndash; $1)</td><td>Add-on for liveness if using another provider for ID</td></tr>
+</table>
+
+<h3>5.2 Liveness Detection (Anti-Spoofing)</h3>
+<table>
+  <tr><th>Provider</th><th>Method</th><th>Cost per Check</th></tr>
+  <tr><td>Smile Identity (included)</td><td>Passive + active liveness</td><td>Included in ID check price</td></tr>
+  <tr><td>Onfido (included)</td><td>Video selfie + photo-based</td><td>Included in ID check price</td></tr>
+  <tr><td>iProov (standalone)</td><td>Genuine Presence Assurance</td><td>R 9 &ndash; 18 ($0.50 &ndash; $1)</td></tr>
+  <tr><td>Amazon Rekognition</td><td>Face liveness detection</td><td>R 0.55 &ndash; 1.10 ($0.03 &ndash; $0.06) per check</td></tr>
+</table>
+
+<h3>5.3 Estimated Monthly Volume &amp; Cost</h3>
+<table>
+  <tr><th>Scenario</th><th>Verifications / Month</th><th>Provider</th><th>Monthly Cost</th></tr>
+  <tr><td>MVP (provider onboarding only)</td><td>50 &ndash; 100</td><td>Smile Identity</td><td>R 900 &ndash; 3,700</td></tr>
+  <tr><td>Growth (providers + high-value customers)</td><td>200 &ndash; 500</td><td>Smile Identity</td><td>R 3,600 &ndash; 18,500</td></tr>
+  <tr><td>Scale (all users + recurring checks)</td><td>1,000+</td><td>Onfido / Smile Identity</td><td>R 18,000+ (volume discounts apply)</td></tr>
+  <tr class="total-row"><td colspan="3"><strong>ID Verification Total (MVP)</strong></td><td><strong>R 900 &ndash; 3,700/mo</strong></td></tr>
+</table>
+
+<p class="note"><strong>Recommendation:</strong> Start with <strong>Smile Identity</strong> for best SA/African coverage and pricing. Onfido for higher accuracy requirements. Most providers offer startup credits or first 100 checks free. Negotiate volume discounts once you exceed 500 verifications/month.</p>
+</div>
+
 <!-- SMS -->
 <div class="section">
-<h2>5. SMS Notifications</h2>
+<h2>6. SMS Notifications</h2>
 <p>Required for: OTP/2FA, booking reminders, dispatch alerts.</p>
 <table>
   <tr><th>Provider</th><th>Cost per SMS (SA)</th><th>Monthly Cost (500 SMS)</th></tr>
@@ -133,7 +170,7 @@
 
 <!-- MAPS -->
 <div class="section">
-<h2>6. Maps / Geolocation</h2>
+<h2>7. Maps / Geolocation</h2>
 <p>Current state: address fields exist but no active map integration. Needed for provider service radius and route optimization.</p>
 <table>
   <tr><th>Provider</th><th>Free Tier</th><th>Paid Tier (MVP)</th></tr>
@@ -147,7 +184,7 @@
 
 <!-- MONITORING -->
 <div class="section">
-<h2>7. Monitoring, Error Tracking &amp; Uptime</h2>
+<h2>8. Monitoring, Error Tracking &amp; Uptime</h2>
 <p>Azure Application Insights is already included in the Azure Infrastructure total above. The following are optional upgrades.</p>
 <table>
   <tr><th>Tool</th><th>Purpose</th><th>Free Tier</th><th>Paid Tier</th></tr>
@@ -161,7 +198,7 @@
 
 <!-- DEVOPS -->
 <div class="section">
-<h2>8. CI/CD &amp; DevOps</h2>
+<h2>9. CI/CD &amp; DevOps</h2>
 <p>The codebase includes a GitHub Actions workflow (<code>.github/workflows/azure-deploy.yml</code>) that builds, pushes containers, and deploys Bicep infrastructure automatically.</p>
 <table>
   <tr><th>Tool</th><th>Purpose</th><th>Cost</th></tr>
@@ -174,7 +211,7 @@
 
 <!-- CODE QUALITY -->
 <div class="section">
-<h2>9. Code Quality &amp; Security (Optional)</h2>
+<h2>10. Code Quality &amp; Security (Optional)</h2>
 <table>
   <tr><th>Tool</th><th>Purpose</th><th>Cost</th></tr>
   <tr><td>Snyk</td><td>Vulnerability scanning</td><td>Free for open-source; ~R 300 &ndash; 600</td></tr>
@@ -185,7 +222,7 @@
 
 <!-- FILE STORAGE -->
 <div class="section">
-<h2>10. File / Asset Storage (Optional)</h2>
+<h2>11. File / Asset Storage (Optional)</h2>
 <p>Current state: profile pictures and documents are stored as URLs. Only needed if adding direct file uploads.</p>
 <table>
   <tr><th>Service</th><th>Purpose</th><th>Cost</th></tr>
@@ -197,7 +234,7 @@
 
 <!-- ONE-TIME -->
 <div class="section">
-<h2>11. One-Time Setup Costs</h2>
+<h2>12. One-Time Setup Costs</h2>
 <table>
   <tr><th>Item</th><th>Cost (ZAR)</th><th>Cost (USD)</th></tr>
   <tr><td>Company registration &amp; legal</td><td>R 5,000 &ndash; 15,000</td><td>$ 273 &ndash; 820</td></tr>
@@ -210,7 +247,7 @@
 
 <!-- REVENUE DEDUCTED -->
 <div class="section">
-<h2>12. Revenue-Deducted Costs</h2>
+<h2>13. Revenue-Deducted Costs</h2>
 <p>These are not fixed monthly costs but are deducted from each transaction at settlement:</p>
 <table>
   <tr><th>Item</th><th>Rate</th></tr>
@@ -220,7 +257,7 @@
 
 <!-- SCALING -->
 <div class="section">
-<h2>13. Scaling Roadmap</h2>
+<h2>14. Scaling Roadmap</h2>
 <table>
   <tr><th>Stage</th><th>Users</th><th>Infra Cost (ZAR/mo)</th><th>Key Upgrade</th></tr>
   <tr><td>MVP</td><td>0 &ndash; 1,000</td><td>R 3,600 &ndash; 5,200</td><td>Burstable DB, 1&ndash;3 replicas</td></tr>
@@ -231,7 +268,7 @@
 
 <!-- OPTIMIZATION -->
 <div class="section">
-<h2>14. Cost Optimization Tips</h2>
+<h2>15. Cost Optimization Tips</h2>
 <ul>
   <li>Use the <strong>Azure free account</strong> (R 3,000 credits for 30 days) to test the full architecture at zero cost</li>
   <li>Start with <strong>Burstable B1ms</strong> for PostgreSQL; upgrade to General Purpose only when CPU consistently exceeds 60%</li>
