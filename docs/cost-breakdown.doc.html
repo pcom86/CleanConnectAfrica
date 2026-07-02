@@ -35,106 +35,225 @@
 </div>
 
 <h1 style="text-align:center; border-bottom:none;">CleanConnect Africa</h1>
-<div class="subtitle" style="text-align:center;">MVP Cost Breakdown &mdash; Azure Infrastructure for Microsoft Marketplace</div>
+<div class="subtitle" style="text-align:center;">MVP Cost Breakdown &mdash; Azure Infrastructure + All Third-Party Services for Microsoft Marketplace</div>
 
+<!-- EXECUTIVE SUMMARY -->
 <div class="section">
-<h2>Scenario A: Azure MVP (Recommended)</h2>
-<p>Production-ready infrastructure on Microsoft Azure. Required for Microsoft Marketplace listing and co-sell eligibility.</p>
+<h2>Executive Summary</h2>
+<p>This document covers <strong>every cost</strong> required to launch CleanConnect Africa on Microsoft Azure with full third-party integrations, qualifying for Microsoft Marketplace listing and co-sell eligibility.</p>
 
 <table>
-  <tr><th>Service</th><th>SKU / Configuration</th><th>Monthly Cost (ZAR)</th></tr>
-  <tr><td>API (Container Apps)</td><td>1&ndash;3 replicas, 1 vCPU, 2 GB RAM</td><td>R 800 &ndash; 2,400</td></tr>
-  <tr><td>Worker (Container Apps)</td><td>1 replica, 0.5 vCPU, 1 GB RAM</td><td>R 400</td></tr>
-  <tr><td>Database (PostgreSQL)</td><td>Flexible Server, Burstable B1ms, 32 GB storage</td><td>R 1,200</td></tr>
-  <tr><td>Cache (Redis)</td><td>Basic C0, 250 MB</td><td>R 300</td></tr>
-  <tr><td>Container Registry</td><td>Basic tier</td><td>R 200</td></tr>
-  <tr><td>Monitoring (App Insights + Logs)</td><td>5 GB ingestion, 30-day retention</td><td>R 700</td></tr>
-  <tr><td>Frontend (Static Web Apps)</td><td>Free tier, custom domain</td><td>R 0</td></tr>
-  <tr class="total-row"><td colspan="2"><strong>Azure Infrastructure Subtotal</strong></td><td><strong>R 3,600 &ndash; 5,200</strong></td></tr>
-  <tr><td>Domain (.co.za)</td><td>Annual registration</td><td>R 20</td></tr>
-  <tr class="total-row highlight"><td colspan="2"><strong>Azure MVP Total</strong></td><td><strong>R 3,620 &ndash; 5,220</strong></td></tr>
+  <tr><th>Category</th><th>Monthly Cost (ZAR)</th><th>Monthly Cost (USD)</th></tr>
+  <tr><td>Azure Infrastructure (compute, DB, cache, registry, telemetry, frontend)</td><td>R 3,600 &ndash; 5,200</td><td>$ 197 &ndash; 284</td></tr>
+  <tr><td>Domain, CDN &amp; Security</td><td>R 20 &ndash; 320</td><td>$ 1 &ndash; 17</td></tr>
+  <tr><td>Payment Gateway (Ozow)</td><td>R 0 &ndash; 500</td><td>$ 0 &ndash; 27</td></tr>
+  <tr><td>Email Delivery</td><td>R 0 &ndash; 300</td><td>$ 0 &ndash; 16</td></tr>
+  <tr><td>SMS Notifications</td><td>R 100 &ndash; 250</td><td>$ 5 &ndash; 14</td></tr>
+  <tr><td>Maps / Geolocation</td><td>R 0 &ndash; 500</td><td>$ 0 &ndash; 27</td></tr>
+  <tr><td>Monitoring &amp; Error Tracking (optional)</td><td>R 0 &ndash; 500</td><td>$ 0 &ndash; 27</td></tr>
+  <tr><td>CI/CD &amp; DevOps</td><td>R 0</td><td>$ 0</td></tr>
+  <tr class="total-row highlight"><td><strong>TOTAL MONTHLY MVP</strong></td><td><strong>R 3,720 &ndash; 7,570</strong></td><td><strong>$ 203 &ndash; 414</strong></td></tr>
 </table>
 
-<p class="note">Region: <code>southafricanorth</code> (Johannesburg). Alternative: <code>westeurope</code> for broader SKU availability.</p>
-</div>
-
-<div class="section">
-<h2>Scenario B: Full MVP (With Notifications)</h2>
-<p>Add email and SMS for live customer engagement and transactional alerts.</p>
-
 <table>
-  <tr><th>Add-on</th><th>Provider</th><th>Monthly Cost (ZAR)</th></tr>
-  <tr><td>Email delivery</td><td>AWS SES / SendGrid</td><td>R 0 &ndash; 150</td></tr>
-  <tr><td>SMS notifications</td><td>Africa's Talking</td><td>R 100 &ndash; 200</td></tr>
-  <tr class="total-row"><td colspan="2"><strong>Full MVP Total (incl. Azure)</strong></td><td><strong>R 3,720 &ndash; 5,570</strong></td></tr>
+  <tr><th>One-Time Setup</th><th>Cost (ZAR)</th><th>Cost (USD)</th></tr>
+  <tr><td>Company registration, legal, branding, Ozow setup</td><td>R 7,000 &ndash; 30,500</td><td>$ 382 &ndash; 1,667</td></tr>
 </table>
 
-<p class="note">Recommendation: Start with Azure MVP only. Add email and SMS once you have active customers requiring them.</p>
+<p class="note">All figures in ZAR. USD equivalents at ~R 18.30/USD. Region: <code>southafricanorth</code> (Johannesburg).</p>
 </div>
 
+<!-- AZURE INFRASTRUCTURE -->
 <div class="section">
-<h2>Scenario C: Ultra-Lean (Pre-Revenue)</h2>
-<p>Single VM, self-managed. Suitable for product-market fit testing. <strong>Not eligible for Microsoft Marketplace.</strong></p>
+<h2>1. Azure Infrastructure</h2>
+<p>Provisioned via Bicep (<code>infra/main.bicep</code>). Required for Microsoft Marketplace.</p>
 
 <table>
-  <tr><th>Component</th><th>Provider / Tool</th><th>Monthly Cost (ZAR)</th></tr>
-  <tr><td>Single VM (4 vCPU, 8 GB RAM)</td><td>Hetzner Cloud CPX31</td><td>R 800 &ndash; 1,200</td></tr>
-  <tr><td>PostgreSQL (Docker on same VM)</td><td>Self-managed</td><td>R 0</td></tr>
-  <tr><td>Redis (Docker on same VM)</td><td>Self-managed</td><td>R 0</td></tr>
-  <tr><td>Next.js frontend (PM2 on same VM)</td><td>Self-hosted</td><td>R 0</td></tr>
-  <tr><td>Domain (.co.za)</td><td>Any registrar</td><td>R 20</td></tr>
-  <tr><td>SSL (Let's Encrypt)</td><td>Certbot</td><td>R 0</td></tr>
-  <tr><td>Cloudflare</td><td>Free plan</td><td>R 0</td></tr>
-  <tr><td>Backups (snapshots / rsync)</td><td>Hetzner</td><td>R 100 &ndash; 200</td></tr>
-  <tr class="total-row"><td colspan="2"><strong>Ultra-Lean Total</strong></td><td><strong>R 920 &ndash; 1,420</strong></td></tr>
+  <tr><th>Service</th><th>Azure Service</th><th>SKU / Configuration</th><th>Monthly Cost</th></tr>
+  <tr><td>API</td><td>Azure Container Apps</td><td>1&ndash;3 replicas, 1 vCPU, 2 GB</td><td>R 800 &ndash; 2,400</td></tr>
+  <tr><td>Background Worker</td><td>Azure Container Apps</td><td>1 replica, 0.5 vCPU, 1 GB</td><td>R 400</td></tr>
+  <tr><td>Database</td><td>Azure DB for PostgreSQL &mdash; Flexible Server</td><td>Burstable B1ms, 32 GB storage, 7-day backups</td><td>R 1,200</td></tr>
+  <tr><td>Cache</td><td>Azure Cache for Redis</td><td>Basic C0, 250 MB</td><td>R 300</td></tr>
+  <tr><td>Container Registry</td><td>Azure Container Registry</td><td>Basic tier</td><td>R 200</td></tr>
+  <tr><td>Monitoring &amp; Telemetry</td><td>Application Insights + Log Analytics</td><td>5 GB ingestion, 30-day retention</td><td>R 700</td></tr>
+  <tr><td>Frontend</td><td>Azure Static Web Apps</td><td>Free tier, custom domain, 250 GB bandwidth</td><td>R 0</td></tr>
+  <tr class="total-row"><td colspan="3"><strong>Azure Infrastructure Subtotal</strong></td><td><strong>R 3,600 &ndash; 5,200</strong></td></tr>
 </table>
 </div>
 
+<!-- DOMAIN & SECURITY -->
 <div class="section">
-<h2>One-Time Setup Costs</h2>
+<h2>2. Domain, CDN &amp; Security</h2>
 <table>
-  <tr><th>Item</th><th>Cost (ZAR)</th></tr>
-  <tr><td>Company registration &amp; legal</td><td>R 5,000 &ndash; 15,000</td></tr>
-  <tr><td>Ozow merchant account setup</td><td>R 0 &ndash; 2,500</td></tr>
-  <tr><td>Branding &amp; logo design</td><td>R 2,000 &ndash; 10,000</td></tr>
-  <tr><td>SSL certificate (wildcard, if paid)</td><td>R 0 &ndash; 3,000</td></tr>
-  <tr class="total-row"><td><strong>Total One-Time</strong></td><td><strong>R 7,000 &ndash; 30,500</strong></td></tr>
+  <tr><th>Service</th><th>Provider</th><th>Cost</th></tr>
+  <tr><td>Domain (.co.za)</td><td>Afrihost / Xneelo / any registrar</td><td>R 20/mo (R 150&ndash;250/yr)</td></tr>
+  <tr><td>SSL Certificate</td><td>Included with Azure Static Web Apps (auto-renewed)</td><td>R 0</td></tr>
+  <tr><td>CDN + DDoS Protection</td><td>Cloudflare Free Plan</td><td>R 0</td></tr>
+  <tr><td>CDN + WAF (optional upgrade)</td><td>Cloudflare Pro Plan</td><td>R 300/mo</td></tr>
+  <tr class="total-row"><td colspan="2"><strong>Domain &amp; Security Total</strong></td><td><strong>R 20 &ndash; 320/mo</strong></td></tr>
 </table>
 </div>
 
+<!-- PAYMENT GATEWAY -->
 <div class="section">
-<h2>Revenue-Deducted Costs</h2>
-<p>These are not fixed monthly costs but are deducted from each transaction:</p>
-<ul>
-  <li><strong>Ozow transaction fee:</strong> 1.5% &ndash; 2.5% of transaction value (negotiable based on volume)</li>
-</ul>
+<h2>3. Payment Gateway &mdash; Ozow</h2>
+<table>
+  <tr><th>Item</th><th>Type</th><th>Cost</th></tr>
+  <tr><td>Account setup fee</td><td>One-time</td><td>R 0 &ndash; 2,500</td></tr>
+  <tr><td>Monthly platform fee</td><td>Fixed monthly</td><td>R 0 &ndash; 500</td></tr>
+  <tr><td>Per-transaction fee</td><td>Revenue-deducted</td><td>1.5% &ndash; 2.5% of value</td></tr>
+  <tr><td>Minimum monthly fee</td><td>Fixed monthly</td><td>Often waived for startups</td></tr>
+  <tr class="total-row"><td colspan="2"><strong>Ozow Monthly Total (fixed)</strong></td><td><strong>R 0 &ndash; 500/mo</strong></td></tr>
+</table>
+<p class="note">Transaction fees are deducted from revenue, not a cash outlay. Fixed fees only apply if negotiated with Ozow.</p>
 </div>
 
+<!-- EMAIL -->
 <div class="section">
-<h2>Scaling Roadmap</h2>
+<h2>4. Email Delivery</h2>
+<p>Required for: user registration, booking confirmations, payment receipts, password resets.</p>
+<table>
+  <tr><th>Provider</th><th>Free Tier</th><th>Paid Tier (1,000 emails/mo)</th><th>MVP Recommendation</th></tr>
+  <tr><td>AWS SES</td><td>62,000/mo (from EC2)</td><td>R 10 &ndash; 20</td><td>Cheapest at scale</td></tr>
+  <tr><td>SendGrid</td><td>100/day</td><td>R 150 &ndash; 300</td><td>Best developer experience</td></tr>
+  <tr><td>Mailgun</td><td>5,000/mo (3 months)</td><td>R 150 &ndash; 250</td><td>Good deliverability</td></tr>
+  <tr><td>Postmark</td><td>100/mo</td><td>R 150 &ndash; 300</td><td>Fast delivery</td></tr>
+  <tr class="total-row"><td colspan="2"><strong>Email Total</strong></td><td><strong>R 0 &ndash; 300/mo</strong></td><td>Start with AWS SES</td></tr>
+</table>
+</div>
+
+<!-- SMS -->
+<div class="section">
+<h2>5. SMS Notifications</h2>
+<p>Required for: OTP/2FA, booking reminders, dispatch alerts.</p>
+<table>
+  <tr><th>Provider</th><th>Cost per SMS (SA)</th><th>Monthly Cost (500 SMS)</th></tr>
+  <tr><td>Africa's Talking</td><td>R 0.25 &ndash; 0.40</td><td>R 125 &ndash; 200</td></tr>
+  <tr><td>Twilio</td><td>R 0.30 &ndash; 0.50</td><td>R 150 &ndash; 250</td></tr>
+  <tr><td>BulkSMS</td><td>R 0.18 &ndash; 0.30</td><td>R 90 &ndash; 150</td></tr>
+  <tr><td>Clickatell</td><td>R 0.20 &ndash; 0.35</td><td>R 100 &ndash; 175</td></tr>
+  <tr class="total-row"><td colspan="2"><strong>SMS Total (at 500 SMS/mo)</strong></td><td><strong>R 100 &ndash; 250/mo</strong></td></tr>
+</table>
+<p class="note">Recommendation: Africa's Talking for best SA coverage and pricing.</p>
+</div>
+
+<!-- MAPS -->
+<div class="section">
+<h2>6. Maps / Geolocation</h2>
+<p>Current state: address fields exist but no active map integration. Needed for provider service radius and route optimization.</p>
+<table>
+  <tr><th>Provider</th><th>Free Tier</th><th>Paid Tier (MVP)</th></tr>
+  <tr><td>Google Maps Platform</td><td>$ 200/mo credit</td><td>Pay-as-you-go after credit</td></tr>
+  <tr><td>Mapbox</td><td>50,000 loads/mo</td><td>R 300 &ndash; 1,000</td></tr>
+  <tr><td>OpenStreetMap (Nominatim)</td><td>Free (with limits)</td><td>Self-host: R 500 &ndash; 1,000</td></tr>
+  <tr class="total-row"><td colspan="2"><strong>Maps Total</strong></td><td><strong>R 0 &ndash; 500/mo</strong></td></tr>
+</table>
+<p class="note">Start with Google Maps free tier ($200 credit) or Mapbox free tier. Upgrade only when limit is reached.</p>
+</div>
+
+<!-- MONITORING -->
+<div class="section">
+<h2>7. Monitoring, Error Tracking &amp; Uptime</h2>
+<p>Azure Application Insights is already included in the Azure Infrastructure total above. The following are optional upgrades.</p>
+<table>
+  <tr><th>Tool</th><th>Purpose</th><th>Free Tier</th><th>Paid Tier</th></tr>
+  <tr><td>Azure Application Insights</td><td>APM, distributed tracing</td><td>5 GB/mo</td><td>Included in Azure total</td></tr>
+  <tr><td>Sentry</td><td>Error tracking, release health</td><td>5,000 errors/mo</td><td>R 200 &ndash; 500</td></tr>
+  <tr><td>UptimeRobot</td><td>External uptime monitoring</td><td>50 monitors</td><td>R 0 &ndash; 200</td></tr>
+  <tr><td>Datadog</td><td>Full observability platform</td><td>14-day trial</td><td>R 2,000+</td></tr>
+  <tr class="total-row"><td colspan="3"><strong>Optional Monitoring Total</strong></td><td><strong>R 0 &ndash; 500/mo</strong></td></tr>
+</table>
+</div>
+
+<!-- DEVOPS -->
+<div class="section">
+<h2>8. CI/CD &amp; DevOps</h2>
+<p>The codebase includes a GitHub Actions workflow (<code>.github/workflows/azure-deploy.yml</code>) that builds, pushes containers, and deploys Bicep infrastructure automatically.</p>
+<table>
+  <tr><th>Tool</th><th>Purpose</th><th>Cost</th></tr>
+  <tr><td>GitHub</td><td>Source control</td><td>Free (public repos) / R 200&ndash;400 (Teams)</td></tr>
+  <tr><td>GitHub Actions</td><td>CI/CD &mdash; build, test, deploy</td><td>2,000 min/mo free (sufficient for MVP)</td></tr>
+  <tr><td>GitHub Dependabot</td><td>Automated dependency updates</td><td>Free</td></tr>
+  <tr class="total-row"><td colspan="2"><strong>DevOps Total</strong></td><td><strong>R 0/mo</strong></td></tr>
+</table>
+</div>
+
+<!-- CODE QUALITY -->
+<div class="section">
+<h2>9. Code Quality &amp; Security (Optional)</h2>
+<table>
+  <tr><th>Tool</th><th>Purpose</th><th>Cost</th></tr>
+  <tr><td>Snyk</td><td>Vulnerability scanning</td><td>Free for open-source; ~R 300 &ndash; 600</td></tr>
+  <tr><td>SonarCloud</td><td>Code quality gates</td><td>Free for public repos; ~R 200 &ndash; 400</td></tr>
+  <tr class="total-row"><td colspan="2"><strong>Code Quality Total</strong></td><td><strong>R 0 &ndash; 600/mo</strong></td></tr>
+</table>
+</div>
+
+<!-- FILE STORAGE -->
+<div class="section">
+<h2>10. File / Asset Storage (Optional)</h2>
+<p>Current state: profile pictures and documents are stored as URLs. Only needed if adding direct file uploads.</p>
+<table>
+  <tr><th>Service</th><th>Purpose</th><th>Cost</th></tr>
+  <tr><td>Azure Blob Storage</td><td>User uploads, long-term backups</td><td>R 50 &ndash; 200/mo</td></tr>
+  <tr><td>Cloudflare R2</td><td>Zero-egress public assets</td><td>R 0 &ndash; 100/mo</td></tr>
+  <tr class="total-row"><td colspan="2"><strong>File Storage Total</strong></td><td><strong>R 0 &ndash; 200/mo</strong></td></tr>
+</table>
+</div>
+
+<!-- ONE-TIME -->
+<div class="section">
+<h2>11. One-Time Setup Costs</h2>
+<table>
+  <tr><th>Item</th><th>Cost (ZAR)</th><th>Cost (USD)</th></tr>
+  <tr><td>Company registration &amp; legal</td><td>R 5,000 &ndash; 15,000</td><td>$ 273 &ndash; 820</td></tr>
+  <tr><td>Ozow merchant account setup</td><td>R 0 &ndash; 2,500</td><td>$ 0 &ndash; 137</td></tr>
+  <tr><td>Branding &amp; logo design</td><td>R 2,000 &ndash; 10,000</td><td>$ 109 &ndash; 546</td></tr>
+  <tr><td>SSL certificate (wildcard, if paid)</td><td>R 0 &ndash; 3,000</td><td>$ 0 &ndash; 164</td></tr>
+  <tr class="total-row"><td><strong>Total One-Time</strong></td><td><strong>R 7,000 &ndash; 30,500</strong></td><td><strong>$ 382 &ndash; 1,667</strong></td></tr>
+</table>
+</div>
+
+<!-- REVENUE DEDUCTED -->
+<div class="section">
+<h2>12. Revenue-Deducted Costs</h2>
+<p>These are not fixed monthly costs but are deducted from each transaction at settlement:</p>
+<table>
+  <tr><th>Item</th><th>Rate</th></tr>
+  <tr><td>Ozow transaction fee</td><td>1.5% &ndash; 2.5% of transaction value (negotiable based on volume)</td></tr>
+</table>
+</div>
+
+<!-- SCALING -->
+<div class="section">
+<h2>13. Scaling Roadmap</h2>
 <table>
   <tr><th>Stage</th><th>Users</th><th>Infra Cost (ZAR/mo)</th><th>Key Upgrade</th></tr>
   <tr><td>MVP</td><td>0 &ndash; 1,000</td><td>R 3,600 &ndash; 5,200</td><td>Burstable DB, 1&ndash;3 replicas</td></tr>
   <tr><td>Growth</td><td>1,000 &ndash; 10,000</td><td>R 10,000 &ndash; 25,000</td><td>General Purpose DB, 3&ndash;6 replicas</td></tr>
-  <tr><td>Scale</td><td>10,000 &ndash; 100,000</td><td>R 40,000 &ndash; 100,000</td><td>Read replicas, Premium Redis</td></tr>
+  <tr><td>Scale</td><td>10,000 &ndash; 100,000</td><td>R 40,000 &ndash; 100,000</td><td>Read replicas, Premium Redis, App Gateway</td></tr>
 </table>
 </div>
 
+<!-- OPTIMIZATION -->
 <div class="section">
-<h2>Cost Optimization Tips</h2>
+<h2>14. Cost Optimization Tips</h2>
 <ul>
-  <li>Use the <strong>Azure free account</strong> (R 3,000 credits for 30 days) to test the full architecture</li>
-  <li>Start with <strong>Burstable B1ms</strong> for PostgreSQL; upgrade only when CPU exceeds 60%</li>
-  <li>Use <strong>Azure Static Web Apps free tier</strong> — includes custom domains and 250 GB bandwidth</li>
-  <li>Keep Redis on <strong>Basic C0</strong>; upgrade only when you need &gt; 250 MB</li>
-  <li>Set Container Apps <strong>max replicas to 1</strong> during launch; scale up with traffic</li>
+  <li>Use the <strong>Azure free account</strong> (R 3,000 credits for 30 days) to test the full architecture at zero cost</li>
+  <li>Start with <strong>Burstable B1ms</strong> for PostgreSQL; upgrade to General Purpose only when CPU consistently exceeds 60%</li>
+  <li>Use <strong>Azure Static Web Apps free tier</strong> &mdash; includes custom domains and 250 GB bandwidth</li>
+  <li>Keep Redis on <strong>Basic C0</strong>; upgrade only when you need &gt; 250 MB or clustering</li>
+  <li>Set Container Apps <strong>max replicas to 1</strong> during launch; scale up only with traffic</li>
   <li>Use <strong>Log Analytics daily cap</strong> to limit ingestion and control telemetry costs</li>
-  <li>Defer email/SMS integration until you have active customers (in-app notifications are built in)</li>
+  <li>Start with <strong>Google Maps free tier</strong> ($200 credit) before paying for Mapbox</li>
+  <li>Use <strong>AWS SES</strong> for email (cheapest at scale) and defer SMS until you have active customers</li>
+  <li>Negotiate <strong>Ozow fees</strong> once you have transaction volume data &mdash; volume typically drives discounts</li>
 </ul>
 </div>
 
+<!-- CURRENCY -->
 <div class="section">
-<h2>Currency Reference</h2>
+<h2>15. Currency Reference</h2>
 <table>
   <tr><th>Currency</th><th>Rate (approximate)</th></tr>
   <tr><td>1 USD</td><td>R 18.30</td></tr>
@@ -143,9 +262,9 @@
 </table>
 </div>
 
+<!-- FOOTER -->
 <div class="footer">
-Document reconciled on 2026-07-02. All figures are estimates based on South African market rates and Azure pricing (South Africa North region). Actual costs may vary by provider, contract terms, and usage patterns. Azure infrastructure costs are derived from the Bicep template in <code>infra/main.bicep</code>.<br><br>
-Full granular breakdown: <code>docs/mvp-cost-breakdown.md</code> &nbsp;|&nbsp; Stakeholder one-pager: <code>docs/cost-breakdown-one-pager.md</code>
+Document reconciled on 2026-07-02. All figures are estimates based on South African market rates and Azure pricing (South Africa North region). Actual costs may vary by provider, contract terms, and usage patterns. Azure infrastructure costs are derived from the Bicep template in <code>infra/main.bicep</code>. Full granular breakdown: <code>docs/mvp-cost-breakdown.md</code>.
 </div>
 
 </body>
