@@ -16,7 +16,42 @@
 #>
 
 $ErrorActionPreference = "Stop"
-$ApiBase = "http://localhost:5000"
+
+# ------------------------------------------------------------------
+# Discover API port (Aspire assigns dynamic ports)
+# ------------------------------------------------------------------
+function Get-ApiBaseUrl() {
+    $defaultPort = 5000
+    try {
+        $test = Invoke-WebRequest -Uri "http://localhost:$defaultPort/api/v1/services" -Method GET -UseBasicParsing -TimeoutSec 3
+        return "http://localhost:$defaultPort"
+    } catch {
+        $dotnetPids = Get-Process -Name "dotnet" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id
+        if (-not $dotnetPids) { return $null }
+        $ports = Get-NetTCPConnection -ErrorAction SilentlyContinue |
+            Where-Object { $_.OwningProcess -in $dotnetPids -and $_.State -eq "Listen" -and ($_.LocalAddress -eq "127.0.0.1" -or $_.LocalAddress -eq "::1") } |
+            Select-Object -ExpandProperty LocalPort | Sort-Object | Get-Unique
+        foreach ($port in $ports) {
+            try {
+                $test = Invoke-WebRequest -Uri "http://localhost:$port/api/v1/services" -Method GET -UseBasicParsing -TimeoutSec 3
+                return "http://localhost:$port"
+            } catch {
+                continue
+            }
+        }
+    }
+    return $null
+}
+
+$ApiBase = Get-ApiBaseUrl
+if (-not $ApiBase) {
+    Write-Host "ERROR: Could not detect a running API." -ForegroundColor Red
+    Write-Host "       Make sure you have run .\start-dev.ps1 and the API is fully started." -ForegroundColor Red
+    Write-Host "       Aspire may take 60-90 seconds to launch postgres/redis containers and the API." -ForegroundColor Red
+    Write-Host ""
+    exit 1
+}
+Write-Host "API endpoint detected: $ApiBase" -ForegroundColor Cyan
 
 # ------------------------------------------------------------------
 # Helpers
@@ -35,7 +70,8 @@ function Invoke-ApiPost($Path, $Body) {
             $errBody = $reader.ReadToEnd()
             $reader.Close()
         }
-        Write-Host "ERROR $Path ($($_.Exception.Response.StatusCode)): $errBody" -ForegroundColor Red
+        $status = if ($_.Exception.Response) { $_.Exception.Response.StatusCode } else { "No Response" }
+        Write-Host "ERROR $Path ($status): $errBody" -ForegroundColor Red
         return @{ succeeded = $false; error = $errBody; data = $null }
     }
 }

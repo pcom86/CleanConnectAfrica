@@ -9,6 +9,19 @@ Write-Host "  CleanConnect Africa - Dev Startup" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
+# Check Docker Desktop is running (Aspire needs it for postgres/redis)
+Write-Host "Checking Docker Desktop..." -ForegroundColor Yellow
+try {
+    $dockerInfo = docker info 2>$null
+    if ($LASTEXITCODE -ne 0) { throw "Docker not ready" }
+    Write-Host "Docker Desktop is running." -ForegroundColor Green
+} catch {
+    Write-Host "ERROR: Docker Desktop is not running or not reachable." -ForegroundColor Red
+    Write-Host "       Please start Docker Desktop first, then re-run this script." -ForegroundColor Red
+    Write-Host ""
+    exit 1
+}
+
 # Stop any existing CleanConnect processes
 Write-Host "Stopping existing processes..." -ForegroundColor Yellow
 Stop-Process -Name "CleanConnect.Api","CleanConnect.AppHost","CleanConnect.Worker" -Force -ErrorAction SilentlyContinue
